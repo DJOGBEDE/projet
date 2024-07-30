@@ -1,0 +1,26 @@
+{
+  "name": "nuxt-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "start-api": "python3 app.py",
+    "start": "concurrently \"npm run dev\" \"npm run start-api\""
+  },
+  "dependencies": {
+    "@mdi/font": "^7.4.47",
+    "axios": "^1.7.2",
+    "leaflet": "^1.9.4",
+    "nuxt": "^3.12.4",
+    "vue": "latest"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "vite-plugin-vuetify": "^2.0.3",
+    "vuetify": "^3.6.13"
+  }
+}

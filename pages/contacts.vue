@@ -1,0 +1,86 @@
+<template>
+  <v-app>
+    <v-main>
+      <v-container class="fill-height d-flex align-center justify-center" fluid>
+        <v-row justify="center" >
+          <v-col cols="12" md="8">
+            <v-card >
+              <v-card-title class="headline">Nous Contacter</v-card-title>
+              <v-card-text>
+                <v-form @submit.prevent="submitForm">
+                  <v-text-field
+                    v-model="contact.name"
+                    label="Nom"
+                    required
+                  ></v-text-field>
+                  <v-text-field
+                    v-model="contact.email"
+                    label="Email"
+                    type="email"
+                    required
+                  ></v-text-field>
+                  <v-text-field
+                    v-model="contact.subject"
+                    label="Sujet"
+                    required
+                  ></v-text-field>
+                  <v-textarea
+                    v-model="contact.message"
+                    label="Message"
+                    required
+                  ></v-textarea>
+                  <v-btn color="primary" class="white--text" type="submit">Envoyer</v-btn>
+                </v-form>
+              </v-card-text>
+              <v-card-actions>
+                <span>Suivez-nous sur les réseaux sociaux :</span>
+                <v-spacer></v-spacer>
+                <v-btn icon @click="openLink('https://www.facebook.com')">
+                  <v-icon>mdi-facebook</v-icon>
+                </v-btn>
+                <v-btn icon @click="openLink('https://www.twitter.com')">
+                  <v-icon>mdi-twitter</v-icon>
+                </v-btn>
+                <v-btn icon @click="openLink('https://www.instagram.com')">
+                  <v-icon>mdi-instagram</v-icon>
+                </v-btn>
+                <v-btn icon @click="openLink('https://www.linkedin.com')">
+                  <v-icon>mdi-linkedin</v-icon>
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-container>
+    </v-main>
+  </v-app>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+const contact = ref({
+  name: '',
+  email: '',
+  subject: '',
+  message: ''
+})
+
+const submitForm = () => {
+  // Logique de soumission du formulaire, comme l'envoi des données à une API
+  console.log('Formulaire de contact soumis:', contact.value)
+  // Réinitialiser le formulaire après soumission
+  contact.value.name = ''
+  contact.value.email = ''
+  contact.value.subject = ''
+  contact.value.message = ''
+}
+
+const openLink = (url) => {
+  window.open(url, '_blank')
+}
+</script>
+
+<style scoped>
+/* Styles personnalisés pour la page de contact */
+</style>
