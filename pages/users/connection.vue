@@ -54,15 +54,20 @@ export default {
       this.success = '';
 
       try {
-        
         const response = await axios.post('http://localhost:8080/api/login', {
           email: this.email,
           password: this.password,
         });
 
-        this.success = response.data.message;
+        const token = response.data.token; // Récupérer le token
+        console.log('Token:', token); // Afficher le token dans la console
+        localStorage.setItem('token', token); // Stocker le token
+
+        // Optionnel : Vous pouvez afficher un message de succès
+        this.success = 'Connexion réussie !';
+
+        // Redirection après connexion réussie
         this.$router.push('/users/dashbord');
-        // Rediriger l'utilisateur ou traiter la réponse
       } catch (error) {
         this.error = error.response ? error.response.data.message : 'Erreur lors de la connexion.';
       }

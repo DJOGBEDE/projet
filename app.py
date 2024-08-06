@@ -23,13 +23,17 @@ def secure_endpoint():
 
 # Connexion à la base de données PostgreSQL
 def get_db_connection():
-    conn = psycopg2.connect(
-        host='localhost',
-        database='geomecano',
-        user='postgres',  # Utilisateur PostgreSQL
-        password='root'  # Remplacez par votre mot de passe PostgreSQL
-    )
-    return conn
+    try:
+        conn = psycopg2.connect(
+            host='localhost',
+            database='geomecano',
+            user='postgres',  # Utilisateur PostgreSQL
+            password='root'  # Remplacez par votre mot de passe PostgreSQL
+        )
+        return conn
+    except Exception as e:
+        print(f"Erreur de connexion à la base de données : {e}")
+        return None
 
 @app.route('/api/register', methods=['POST'])
 def register_user():
@@ -45,6 +49,9 @@ def register_user():
 
     # Insérer l'utilisateur dans la base de données
     conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
+
     cursor = conn.cursor()
     cursor.execute(
         'INSERT INTO users (username, password, email, phone, role) VALUES (%s, %s, %s, %s, %s)',
@@ -71,6 +78,9 @@ def register_workshop():
 
     # Insérer l'atelier dans la base de données
     conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
+
     cursor = conn.cursor()
     cursor.execute(
         'INSERT INTO workshops (name, address, phone_number, email, website, password) VALUES (%s, %s, %s, %s, %s, %s)',
@@ -89,6 +99,9 @@ def login():
     password = data.get('password')
 
     conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
+
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
     user = cursor.fetchone()
@@ -106,6 +119,142 @@ def login():
 def get_user():
     current_user = get_jwt_identity()
     return jsonify(current_user), 200
+
+
+########################################################################################################################
+
+
+@app.route('/api/ateliers', methods=['GET'])
+def get_ateliers():
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
+
+    cur = conn.cursor()
+    cur.execute('SELECT id, name, address, phone_number, email, website, opening_hours, latitude, longitude FROM workshops')
+    ateliers = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    atelier_list = []
+    for atelier in ateliers:
+        atelier_dict = {
+            'id': atelier[0],
+            'name': atelier[1],
+            'address': atelier[2],
+            'phone_number': atelier[3],
+            'email': atelier[4],
+            'website': atelier[5],
+            'opening_hours': atelier[6],
+            'latitude': atelier[7],
+            'longitude': atelier[8]
+        }
+        atelier_list.append(atelier_dict)
+
+    return jsonify(atelier_list)
+
+
+@app.route('/api/ateliers/<int:id>', methods=['GET'])
+def get_atelier(id):
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
+
+    cur = conn.cursor()
+    cur.execute('SELECT id, name, address, phone_number, email, website, opening_hours, latitude, longitude FROM workshops WHERE id = %s', (id,))
+    atelier = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if atelier is None:
+        return jsonify({'error': 'Atelier not found'}), 404
+
+    atelier_dict = {
+        'id': atelier[0],
+        'name': atelier[1],
+        'address': atelier[2],
+        'phone_number': atelier[3],
+        'email': atelier[4],
+        'website': atelier[5],
+        'opening_hours': atelier[6],
+        'latitude': atelier[7],
+        'longitude': atelier[8]
+    }
+
+    return jsonify(atelier_dict)
+
+@app.route('/api/ateliers/services', methods=['GET'])
+def get_ateliers_by_services():
+    service_id = request.args.get('service_id')
+    
+    if not service_id:
+        return jsonify({'error': 'Service ID is required'}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
+
+    cursor = conn.cursor()
+    
+    # Récupérer les ateliers associés à un service spécifique
+    cursor.execute(
+        '''
+        SELECT w.id, w.name, w.address, w.phone_number, w.email, w.website, w.opening_hours, w.latitude, w.longitude
+        FROM workshops w
+        JOIN services ws ON w.id = ws.workshop_id
+        WHERE ws.service_id = %s
+        ''', (service_id,)
+    )
+    ateliers = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    if not ateliers:
+        return jsonify([])  # Retourner une liste vide si aucun atelier n'est trouvé
+
+    atelier_list = []
+    for atelier in ateliers:
+        atelier_dict = {
+            'id': atelier[0],
+            'name': atelier[1],
+            'address': atelier[2],
+            'phone_number': atelier[3],
+            'email': atelier[4],
+            'website': atelier[5],
+            'opening_hours': atelier[6],
+            'latitude': atelier[7],
+            'longitude': atelier[8]
+        }
+        atelier_list.append(atelier_dict)
+
+    return jsonify(atelier_list)
+
+
+@app.route('/api/services', methods=['GET'])
+def get_services():
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
+
+    cur = conn.cursor()
+    
+    # Correction de la requête SQL pour récupérer les services
+    cur.execute('SELECT * FROM services')
+    services = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    services_list = []
+    for service in services:
+        service_dict = {
+            'id': service[0],
+            'name': service[1],
+            'description': service[2],
+            'workshop_id': service[3],
+        }
+        services_list.append(service_dict)
+
+    return jsonify(services_list)
 
 if __name__ == '__main__':
     app.run(port=8080)

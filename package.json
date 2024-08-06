@@ -15,8 +15,12 @@
     "@mdi/font": "^7.4.47",
     "axios": "^1.7.2",
     "leaflet": "^1.9.4",
+    "leaflet-routing-machine": "^3.2.12",
+    "mapbox-gl": "^3.5.2",
     "nuxt": "^3.12.4",
-    "vue": "latest"
+    "qrcode.vue": "^3.4.1",
+    "vue": "latest",
+    "vue-leaflet": "^0.1.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

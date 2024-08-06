@@ -2,8 +2,7 @@
   <v-app>
     <!-- Barre d'Outils -->
     <v-app-bar app color="primary" dark>
-      <v-toolbar-title>Mon Application</v-toolbar-title>
-      <v-avatar>
+      <v-avatar class="ml-4">
         <img :src="user.profilePicture" alt="Photo de profil" />
       </v-avatar>
       <span class="ml-2">{{ user.name }}</span>
@@ -73,40 +72,35 @@
 
     <v-main>
       <v-container fluid>
-        <!-- Barre de Recherche -->
         <v-row class="mb-4">
-          <v-col cols="12">
-            <v-card class="pa-4" outlined>
-              <v-tabs v-model="tab" background-color="primary" dark>
-                <v-tab>Recherche par Localisation</v-tab>
-                <v-tab>Recherche par Services</v-tab>
-              </v-tabs>
-              <v-tabs-items v-model="tab">
-                <!-- Recherche par Localisation -->
-                <v-tab-item>
-                  <v-text-field
-                    v-model="locationQuery"
-                    label="Entrez une adresse ou utilisez votre localisation actuelle"
-                    prepend-icon="mdi-map-marker"
-                    @input="searchByLocation"
-                  />
-                  <v-btn @click="useCurrentLocation" class="mb-4" color="primary">Utiliser ma localisation actuelle</v-btn>
-                </v-tab-item>
+  <v-col cols="12">
+    <v-card class="pa-4" outlined>
+      <v-tabs v-model="tab" background-color="primary" dark>
+        <v-tab>
+          <v-icon left>mdi-map-marker</v-icon>
+          Recherche par Localisation
+        </v-tab>
 
-                <!-- Recherche par Services -->
-                <v-tab-item>
-                  <v-select
-                    v-model="selectedServices"
-                    :items="serviceOptions"
-                    label="Sélectionnez les services souhaités"
-                    multiple
-                    @change="searchByServices"
-                  />
-                </v-tab-item>
-              </v-tabs-items>
-            </v-card>
-          </v-col>
-        </v-row>
+        <v-tab>
+          <v-icon left>mdi-wrench</v-icon>
+          Recherche par Services
+        </v-tab>
+      </v-tabs>
+
+      <!-- Recherche par Localisation -->
+      <v-tab-item v-if="tab === 0">
+        <v-text-field
+         v-model="location"
+          label="Entrez une adresse ou utilisez votre localisation actuelle"
+          prepend-icon="mdi-map-marker"
+         
+          class="mt-6"
+        />
+        <div v-if="loading">Chargement des données...</div>
+        <div v-if="error" class="error">{{ error }}</div>
+        <v-btn  @click="fetchLocationData" class="ml-10 mb-4" color="primary">
+          Rechercher...
+        </v-btn>
 
         <!-- Carte Interactive et Liste des Ateliers -->
         <v-row>
@@ -115,9 +109,7 @@
             <v-card class="pa-4" outlined>
               <v-card-title>Carte des Ateliers</v-card-title>
               <v-card-text>
-                <div id="map" style="height: 400px; width: 100%;">
-                  <iframe :src="mapUrl" width="100%" height="400" frameborder="0" style="border:0" allowfullscreen></iframe>
-                </div>
+                <div id="map" style="height: 400px;"></div>
               </v-card-text>
             </v-card>
           </v-col>
@@ -126,144 +118,380 @@
           <v-col cols="12" md="6">
             <v-card class="pa-4" outlined>
               <v-card-title>Liste des Ateliers</v-card-title>
-              <v-list>
-                <v-list-item-group v-if="ateliers.length > 0">
-                  <v-list-item
-                    v-for="atelier in ateliers"
-                    :key="atelier.id"
-                    @click="viewAtelierDetails(atelier.id)"
-                  >
-                    <v-list-item-content>
-                      <v-list-item-title>{{ atelier.name }}</v-list-item-title>
-                      <v-list-item-subtitle>{{ atelier.address }}</v-list-item-subtitle>
-                      <v-list-item-subtitle>{{ atelier.phone }}</v-list-item-subtitle>
-                      <v-list-item-subtitle>{{ atelier.services.join(', ') }}</v-list-item-subtitle>
-                    </v-list-item-content>
-                    <v-list-item-action>
-                      <v-btn @click.stop="viewAtelierDetails(atelier.id)">Voir plus</v-btn>
-                    </v-list-item-action>
-                  </v-list-item>
-                </v-list-item-group>
-                <v-list-item v-else>
-                  <v-list-item-content>
-                    <v-list-item-title>Aucun atelier trouvé.</v-list-item-title>
-                  </v-list-item-content>
-                </v-list-item>
-              </v-list>
+              <v-container>
+                <v-row>
+                 
+                  <v-col v-for="atelier in paginatedAteliers" :key="atelier.id" cols="12" sm="6" md="5">
+                    <v-card @click="goToAtelier(atelier.id)" width="350px" class="d-flex flex-column ml-14">
+                      <v-img :src="atelier.image_url" alt="Photo de l'atelier" height="300px" class="mb-3"></v-img>
+                      <v-card-title>{{ atelier.name }}</v-card-title>
+                      <v-card-subtitle>{{ atelier.address }}</v-card-subtitle>
+                      <v-card-subtitle>{{ atelier.opening_hours }}</v-card-subtitle>
+                    </v-card>
+                  </v-col>
+                </v-row>
+              </v-container>
+              <v-pagination
+                v-model="currentPage"
+                :length="pageCount"
+                total-visible="5"
+                @input="updatePage"
+              ></v-pagination>
             </v-card>
           </v-col>
         </v-row>
+
+        <!-- V-Card pour afficher les services sélectionnés -->
+        <v-row>
+          <v-col cols="12">
+            <v-card class="mt-4" v-if="selectedServices.length > 0">
+              <v-card-title>Services Sélectionnés</v-card-title>
+              <v-card-text>
+                <div v-for="(service, index) in selectedServices" :key="index">
+                  {{ service }}
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-tab-item>
+
+      <!-- Recherche par Services -->
+      <v-tab-item v-if="tab === 1">
+        <v-text-field
+          v-model="search"
+          density="comfortable"
+          placeholder="Rechercher un service"
+          prepend-inner-icon="mdi-magnify"
+          style="max-width: 900px;"
+          variant="solo"
+          clearable
+          hide-details
+          class="mb-4 ml-4"
+        />
+        <!-- Liste des Ateliers pour Recherche par Services -->
+        <v-card class="pa-4" outlined>
+          <v-card-title>Liste des Ateliers</v-card-title>
+          <v-container>
+            <v-row>
+              <v-col v-for="service in paginatedServices" :key="service.id" cols="12" sm="6" md="6">
+                <v-card @click="goToAtelier(service.workshop_id)" class="mb-4" outlined>
+                  <v-card-title>{{ service.name }}</v-card-title>
+                  <v-card-subtitle>{{ service.description }}</v-card-subtitle>
+                  <v-card-text>
+                    <div v-if="getAtelierById(service.workshop_id)">
+                      <h3>Atelier Associé :</h3>
+                      <v-list dense>
+                        <v-list-item>
+                          <v-list-item-icon>
+                            <v-icon>mdi-store</v-icon>
+                          </v-list-item-icon>
+                          <v-list-item-content>
+                            <v-list-item-title class="text-subtitle-1">
+                              <strong>Nom:</strong> {{ getAtelierById(service.workshop_id).name }}
+                            </v-list-item-title>
+                          </v-list-item-content>
+                        </v-list-item>
+
+                        <v-list-item>
+                          <v-list-item-icon>
+                            <v-icon>mdi-map-marker</v-icon>
+                          </v-list-item-icon>
+                          <v-list-item-content>
+                            <v-list-item-title class="text-subtitle-1">
+                              <strong>Adresse:</strong> {{ getAtelierById(service.workshop_id).address }}
+                            </v-list-item-title>
+                          </v-list-item-content>
+                        </v-list-item>
+
+                        <v-list-item>
+                          <v-list-item-icon>
+                            <v-icon>mdi-phone</v-icon>
+                          </v-list-item-icon>
+                          <v-list-item-content>
+                            <v-list-item-title class="text-subtitle-1">
+                              <strong>Téléphone:</strong> {{ getAtelierById(service.workshop_id).phone_number }}
+                            </v-list-item-title>
+                          </v-list-item-content>
+                        </v-list-item>
+
+                        <v-list-item>
+                          <v-list-item-icon>
+                            <v-icon>mdi-web</v-icon>
+                          </v-list-item-icon>
+                          <v-list-item-content>
+                            <v-list-item-title class="text-subtitle-1">
+                              <strong>Site Web:</strong>
+                              <a :href="getAtelierById(service.workshop_id).website" target="_blank">{{ getAtelierById(service.workshop_id).website }}</a>
+                            </v-list-item-title>
+                          </v-list-item-content>
+                        </v-list-item>
+
+                        <v-list-item>
+                          <v-list-item-icon>
+                            <v-icon>mdi-clock-outline</v-icon>
+                          </v-list-item-icon>
+                          <v-list-item-content>
+                            <v-list-item-title class="text-subtitle-1">
+                              <strong>Heures d'ouverture:</strong> {{ getAtelierById(service.workshop_id).opening_hours }}
+                            </v-list-item-title>
+                          </v-list-item-content>
+                        </v-list-item>
+                      </v-list>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+            <v-pagination
+              v-model="currentPage"
+              :length="pageCount"
+              class="mt-4"
+              color="primary"
+            ></v-pagination>
+          </v-container>
+        </v-card>
+      </v-tab-item>
+    </v-card>
+  </v-col>
+</v-row>
+
       </v-container>
+      
+  
     </v-main>
   </v-app>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios' // Assurez-vous d'avoir installé axios
+import { ref, computed, onMounted } from 'vue';
+import axios from 'axios';
+import { useRouter } from 'vue-router';
 
-// Variables réactives
-const tab = ref(0)
-const locationQuery = ref('')
-const selectedServices = ref([])
-const serviceOptions = ref(['Service 1', 'Service 2', 'Service 3']) // Remplacez par les services réels
-const ateliers = ref([])
-const mapUrl = ref('https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3151.835434509716!2d144.95373531544786!3d-37.817209742021115!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x6ad642af0f11fd81%3A0xf5772e05c3d5cdb8!2sFederation+Square!5e0!3m2!1sen!2sau!4v1515565516795')
+// Définition des variables réactives
+const currentPage = ref(1);
+const itemsPerPage = 4;
+const tab = ref(0);
+const locationQuery = ref('');
+const search = ref('');
+const selectedServices = ref([]);
+const mapUrl = ref('https://www.google.com/maps?q=48.858844,2.294351');
+const services = ref([]);
 
-// User info
+// Variables pour la gestion de la déconnexion et des messages
+const logoutDialog = ref(false);
+const messagesDialog = ref(false);
+const notificationsDialog = ref(false);
+const messages = ref([]);
+const newMessage = ref([]);
+const notifications = ref([]);
+//Variables pour stocker la latitude et la longitude
+let latitude = ref(null);
+let longitude = ref(null);
+
+
+// Utilisation de router
+const router = useRouter();
+
+// Récupération des données d'utilisateur
 const user = ref({
-  name: '',
-  email: '',
-  phone: '',
-  role: '',
-  profilePicture: 'url_de_la_photo_de_profil', // Remplacez par l'URL par défaut
+  name: 'Delkaël DJOGBEDE',
+  email: 'delkael107@gmail.com',
+  profilePicture: 'https://example.com/path-to-profile-picture.jpg',
 });
 
-// Dialogs
-const logoutDialog = ref(false)
-const messagesDialog = ref(false)
-const notificationsDialog = ref(false)
-const messages = ref([])
-const notifications = ref([])
-const newMessage = ref('')
+// Récupération des ateliers
+const ateliers = ref([]);
 
-// Récupérer les données de l'utilisateur
+
+const location = ref('');
+const coordinates = ref([]);
+const loading = ref(false);
+const error = ref(null);
+let map = null; // Référence à la carte
+
+onMounted(() => {
+  initMap(); // Initialiser la carte uniquement une fois le composant monté
+});
+
+const fetchLocationData = async () => {
+  loading.value = true;
+  error.value = null;
+
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${location.value}`);
+
+    if (!response.ok) {
+      throw new Error("Erreur de réseau");
+    }
+
+    const data = await response.json();
+
+    if (data && data.length > 0) {
+      const { lat, lon } = data[0];
+      coordinates.value.push({ lat, lon }); // Ajouter les coordonnées à la liste
+      updateMap(lat, lon); // Mettre à jour la carte avec les nouvelles coordonnées
+    } else {
+      error.value = "Aucune donnée trouvée pour cette localité.";
+    }
+  } catch (err) {
+    error.value = "Erreur lors de la récupération des données : " + err.message;
+  } finally {
+    loading.value = false;
+  }
+};
+
+const initMap = () => {
+  // Vérifier si la carte est déjà initialisée
+  if (!map) {
+    map = L.map('map').setView([51.505, -0.09], 2); // Vue par défaut sur le monde
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap',
+    }).addTo(map);
+  }
+};
+
+const updateMap = (lat, lon) => {
+  // Ajouter un marqueur pour le nouveau lieu
+  L.marker([lat, lon]).addTo(map)
+    .bindPopup('Localité: ' + location.value)
+    .openPopup();
+
+  // Ajouter un cercle bleu autour du lieu trouvé
+  L.circle([lat, lon], {
+    color: 'blue',
+    radius: 500, // Rayon en mètres
+    fillOpacity: 0.5
+  }).addTo(map);
+
+  // Centrer la carte sur le dernier lieu ajouté
+  map.setView([lat, lon], 13);
+};
+// Récupérer les services et les ateliers lorsque le composant est monté
 onMounted(async () => {
   try {
-    const token = localStorage.getItem('token'); // Assurez-vous de récupérer le token stocké lors de la connexion
-    const response = await axios.get('/api/user', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    user.value = response.data // Assurez-vous que les données sont au bon format
+    const responseServices = await axios.get('http://localhost:8080/api/services'); // Remplacer par votre API
+    services.value = responseServices.data;
+    
+    const responseAteliers = await axios.get('http://localhost:8080/api/ateliers'); // Remplacer par votre API
+    ateliers.value = responseAteliers.data;
   } catch (error) {
-    console.error('Erreur lors de la récupération des données utilisateur:', error)
+    console.error('Erreur lors de la récupération des services ou des ateliers:', error);
   }
-})
+});
 
-// Fonctions
-function searchByLocation() {
-  // Logique de recherche par localisation
-}
+// Fonction pour filtrer les services en fonction de la recherche
+const filterServices = () => {
+  return services.value.filter(service =>
+    service.name.toLowerCase().includes(search.value.toLowerCase()) ||
+    service.description.toLowerCase().includes(search.value.toLowerCase())
+  );
+};
 
-function searchByServices() {
-  // Logique de recherche par services
-}
+// Utiliser une propriété calculée pour obtenir les services filtrés
+const filteredServices = computed(() => filterServices());
 
-function useCurrentLocation() {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition((position) => {
-      locationQuery.value = `${position.coords.latitude}, ${position.coords.longitude}`
-      searchByLocation()
-    }, () => {
-      alert('Impossible d\'obtenir votre position.')
-    });
-  } else {
-    alert('La géolocalisation n\'est pas supportée par ce navigateur.')
+// Obtenir les ateliers filtrés par recherche
+const filteredAteliers = computed(() => {
+  const searchLower = search.value.toLowerCase();
+  return ateliers.value.filter(atelier => {
+    return atelier.name.toLowerCase().includes(searchLower);
+  });
+});
+
+const paginatedAteliers = computed(() => {
+  if (!filteredServices.value) {
+    return [];
   }
-}
+  const start = (currentPage.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return filteredServices.value.slice(start, end);
+});
 
-function viewAtelierDetails(id) {
-  // Logique pour afficher les détails de l'atelier
-}
+// Fonction pour mettre à jour la page courante
+const updatePage = (page) => {
+  currentPage.value = page;
+};
 
-function showLogoutDialog() {
-  logoutDialog.value = true
-}
+// Fonction pour afficher le dialog de déconnexion
+const showLogoutDialog = () => {
+  logoutDialog.value = true;
+};
 
-function hideLogoutDialog() {
-  logoutDialog.value = false
-}
+// Fonction pour cacher le dialog de déconnexion
+const hideLogoutDialog = () => {
+  logoutDialog.value = false;
+};
 
-function logout() {
+// Fonction de déconnexion
+const logout = () => {
   // Logique de déconnexion
-}
+  router.push('/login');
+};
 
-function showMessages() {
-  messagesDialog.value = true
-}
+// Fonction pour afficher les messages
+const showMessages = () => {
+  messagesDialog.value = true;
+};
 
-function hideMessagesDialog() {
-  messagesDialog.value = false
-}
+// Fonction pour cacher le dialog des messages
+const hideMessagesDialog = () => {
+  messagesDialog.value = false;
+};
 
-function sendMessage() {
+// Fonction pour envoyer un message
+const sendMessage = () => {
   if (newMessage.value) {
-    messages.value.push(newMessage.value)
-    newMessage.value = ''
+    messages.value.push(newMessage.value);
+    newMessage.value = '';
   }
-}
+};
 
-function showNotifications() {
-  notificationsDialog.value = true
-}
+// Fonction pour afficher les notifications
+const showNotifications = () => {
+  notificationsDialog.value = true;
+};
 
-function hideNotificationsDialog() {
-  notificationsDialog.value = false
-}
+// Fonction pour cacher le dialog des notifications
+const hideNotificationsDialog = () => {
+  notificationsDialog.value = false;
+};
+
+// Filtrer par localisation
+const searchByLocation = () => {
+  // Logique pour filtrer par localisation
+};
+
+// Utiliser la localisation actuelle
+const useCurrentLocation = () => {
+  // Logique pour utiliser la localisation actuelle
+};
+
+
+// Pagination des services filtrés
+const paginatedServices = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return filteredServices.value.slice(start, end);
+});
+
+// Nombre total de pages pour la pagination
+const pageCount = computed(() => Math.ceil(filteredServices.value.length / itemsPerPage));
+
+// Récupérer les détails de l'atelier par ID
+const getAtelierById = (id) => {
+  return ateliers.value.find(atelier => atelier.id === id);
+};
+
+// Rediriger vers la page de l'atelier
+const goToAtelier = (id) => {
+  router.push(`/users/${id}`);
+};
+
 </script>
 
 <style scoped>
-/* Ajoutez vos styles ici */
+/* Ajoutez votre CSS ici */
 </style>
