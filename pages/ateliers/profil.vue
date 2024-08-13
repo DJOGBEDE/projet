@@ -1,13 +1,14 @@
 <template>
   <v-app>
+    <!-- Barre de navigation -->
     <v-app-bar app color="primary" dark>
       <v-toolbar-title>Profil de l'Atelier</v-toolbar-title>
       <v-spacer></v-spacer>
+      <v-btn text @click="$router.push('/ateliers/dashbord')">Tableau de bord</v-btn>
       <v-btn text @click="$router.push('/ateliers/services')">Services</v-btn>
       <v-btn text @click="$router.push('/ateliers/rendezvous')">Rendez-vous</v-btn>
       <v-btn text @click="$router.push('/ateliers/stats')">Statistiques</v-btn>
       <v-btn text @click="$router.push('/ateliers/paramettres')">Paramètres</v-btn>
-     
     </v-app-bar>
 
     <v-main>
@@ -19,31 +20,11 @@
               <v-card-title>Informations de Profil</v-card-title>
               <v-card-text>
                 <v-form @submit.prevent="updateProfile">
-                  <v-text-field
-                    v-model="profile.name"
-                    label="Nom de l'atelier"
-                    required
-                  />
-                  <v-text-field
-                    v-model="profile.address"
-                    label="Adresse"
-                    required
-                  />
-                  <v-text-field
-                    v-model="profile.phone"
-                    label="Numéro de téléphone"
-                    required
-                  />
-                  <v-text-field
-                    v-model="profile.email"
-                    label="Adresse e-mail"
-                    type="email"
-                    required
-                  />
-                  <v-text-field
-                    v-model="profile.website"
-                    label="Site web"
-                  />
+                  <v-text-field v-model="profile.name" label="Nom de l'atelier" required />
+                  <v-text-field v-model="profile.address" label="Adresse" required />
+                  <v-text-field v-model="profile.phone" label="Numéro de téléphone" required />
+                  <v-text-field v-model="profile.email" label="Adresse e-mail" type="email" required />
+                  <v-text-field v-model="profile.website" label="Site web" />
                   <v-btn type="submit" color="primary">Mettre à jour</v-btn>
                 </v-form>
               </v-card-text>
@@ -51,50 +32,8 @@
           </v-col>
         </v-row>
 
-        <!-- Horaires d'Ouverture -->
-        <v-row class="mb-4">
-          <v-col cols="12">
-            <v-card class="pa-4" outlined>
-              <v-card-title>Horaires d'Ouverture</v-card-title>
-              <v-card-text>
-                <v-form @submit.prevent="updateOpeningHours">
-                  <v-text-field
-                    v-model="openingHours.monday"
-                    label="Lundi"
-                  />
-                  <v-text-field
-                    v-model="openingHours.tuesday"
-                    label="Mardi"
-                  />
-                  <v-text-field
-                    v-model="openingHours.wednesday"
-                    label="Mercredi"
-                  />
-                  <v-text-field
-                    v-model="openingHours.thursday"
-                    label="Jeudi"
-                  />
-                  <v-text-field
-                    v-model="openingHours.friday"
-                    label="Vendredi"
-                  />
-                  <v-text-field
-                    v-model="openingHours.saturday"
-                    label="Samedi"
-                  />
-                  <v-text-field
-                    v-model="openingHours.sunday"
-                    label="Dimanche"
-                  />
-                  <v-btn type="submit" color="primary">Mettre à jour</v-btn>
-                </v-form>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-
-        <!-- Gestion des Photos -->
-        <v-row>
+         <!-- Gestion des Photos -->
+         <v-row>
           <v-col cols="12">
             <v-card class="pa-4" outlined>
               <v-card-title>Gestion des Photos</v-card-title>
@@ -106,7 +45,7 @@
                   accept="image/*"
                   @change="handleFileChange"
                 />
-                <v-btn @click="uploadPhotos" color="primary">Télécharger</v-btn>
+                <v-btn @click="uploadImage" color="primary">Télécharger</v-btn>
                 <v-row class="mt-4">
                   <v-col
                     v-for="(photo, index) in profile.photos"
@@ -128,8 +67,21 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
 
+const specificId = ref('')
+const image = ref(null)
+const imagePreview = ref(null)
+const images = ref([])
+
+const previewImage = () => {
+  if (image.value) {
+    imagePreview.value = URL.createObjectURL(image.value)
+  }
+}
+
+// Définition du profil de l'atelier
 const profile = ref({
   name: '',
   address: '',
@@ -137,65 +89,126 @@ const profile = ref({
   email: '',
   website: '',
   photos: []
-})
+});
 
-const openingHours = ref({
-  monday: '',
-  tuesday: '',
-  wednesday: '',
-  thursday: '',
-  friday: '',
-  saturday: '',
-  sunday: ''
-})
+// Variables pour les fichiers photo
+const photoFiles = ref([]);
+const userData = ref(null);
 
-const photoFiles = ref([])
-
+// Fonction pour gérer les changements de fichier
 function handleFileChange(event) {
-  // Met à jour photoFiles avec les fichiers sélectionnés
-  photoFiles.value = Array.from(event.target.files).map(file => URL.createObjectURL(file))
+  // Convertir les fichiers en URL pour les prévisualiser
+  photoFiles.value = Array.from(event.target.files).map(file => URL.createObjectURL(file));
 }
 
-function updateProfile() {
-  // Logique pour mettre à jour les informations du profil
-  console.log('Informations de profil mises à jour', profile.value)
+// Fonction pour récupérer les données de l'utilisateur
+async function fetchUserData() {
+  const token = process.client ? localStorage.getItem('token') : null;
+  if (token) {
+    try {
+      const response = await axios.get('http://localhost:8080/api/atelier', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      userData.value = response.data;
+
+      // Mise à jour des informations de profil
+      profile.value.name = response.data.name;
+      profile.value.email = response.data.email;
+      profile.value.phone = response.data.phone_number;
+      profile.value.address = response.data.adresse;
+      profile.value.website = response.data.website;
+
+      // Récupérer les photos de profil
+      fetchProfilePhotos();
+    } catch (error) {
+      console.error('Erreur lors de la récupération des données de l\'utilisateur:', error);
+      userData.value = null;
+    }
+  }
 }
 
-function updateOpeningHours() {
-  // Logique pour mettre à jour les horaires d'ouverture
-  console.log('Horaires d\'ouverture mis à jour', openingHours.value)
+// Fonction pour mettre à jour le profil
+async function updateProfile() {
+  try {
+    await axios.put(`http://localhost:8080/api/atelier/${userData.value.id}`, {
+      name: profile.value.name,
+      email: profile.value.email,
+      phone: profile.value.phone,
+      address: profile.value.address,
+      website: profile.value.website
+    });
+    console.log('Informations mises à jour', profile.value);
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du profil', error);
+  }
 }
 
+// Fonction pour télécharger les photos
 function uploadPhotos() {
-  // Logique pour télécharger les photos
-  profile.value.photos.push(...photoFiles.value)
-  photoFiles.value = []
-  console.log('Photos téléchargées', profile.value.photos)
+  profile.value.photos.push(...photoFiles.value);
+  photoFiles.value = [];
+  console.log('Photos téléchargées', profile.value.photos);
 }
 
+// Fonction pour récupérer les photos de profil
+async function fetchProfilePhotos() {
+  const token = process.client ? localStorage.getItem('token') : null;
+  try {
+    const response = await axios.get(`http://localhost:8080/api/user/${userData.value.id}/profile-picture`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    profile.value.photos = [response.data.profilePictureUrl];
+  } catch (error) {
+    console.error('Erreur lors de la récupération des photos de profil', error);
+  }
+}
+
+const uploadImage = async () => {
+  if (image.value && userData.value.id) {
+    const reader = new FileReader()
+    reader.readAsDataURL(image.value)
+    reader.onload = async () => {
+      const base64Image = reader.result.split(',')[1]
+      try {
+        await axios.post(`http://localhost:8080/upload/${userData.value.id}`, {
+          image_data: base64Image,
+        })
+        alert('Image uploaded successfully!')
+        image.value = null
+        imagePreview.value = null
+        specificId.value = ''
+        fetchImages() // Refresh images after upload
+      } catch (error) {
+        console.error(error)
+        alert('Failed to upload image.')
+      }
+    }
+  } else {
+    alert('Please provide a specific ID and select an image.')
+  }
+}
+
+// Fonction pour supprimer une photo
 function removePhoto(index) {
-  // Logique pour supprimer une photo
-  profile.value.photos.splice(index, 1)
-  console.log('Photo supprimée', index)
+  profile.value.photos.splice(index, 1);
+  console.log('Photo supprimée', profile.value.photos);
 }
 
-function goToServices() {
-  router.push('/atelier/services')
-}
-
-function goToAppointments() {
-  router.push('/atelier/appointments')
-}
-
-function goToStatistics() {
-  router.push('/atelier/statistics')
-}
-
-function goToSettings() {
-  router.push('/atelier/settings')
-}
+// Initialisation des données au montage du composant
+onMounted(() => {
+  fetchUserData();
+});
 </script>
 
 <style scoped>
-/* Styles personnalisés pour la page de gestion de profil */
+.pa-4 {
+  padding: 16px;
+}
+.mb-4 {
+  margin-bottom: 16px;
+}
 </style>

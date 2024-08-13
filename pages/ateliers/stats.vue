@@ -4,6 +4,7 @@
       <v-toolbar-title>Paramètres</v-toolbar-title>
       <v-spacer></v-spacer>
       <v-btn text @click="$router.push('/acceuil')">Acceuil</v-btn>
+      <v-btn text @click="$router.push('/ateliers/dashbord')">Tableau de bord</v-btn>
       <v-btn text @click="$router.push('/ateliers/profil')">Profil</v-btn>
       <v-btn text @click="$router.push('/ateliers/services')">Services</v-btn>
       <v-btn text @click="$router.push('/ateliers/rendezvous')">Rendez-vous</v-btn>

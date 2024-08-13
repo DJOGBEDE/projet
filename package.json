@@ -4,12 +4,13 @@
   "type": "module",
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev",
+    "dev": "nuxt dev & nodemon app.py",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "start-api": "python3 app.py",
     "start": "concurrently \"npm run dev\" \"npm run start-api\""
+   
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "nodemon": "^3.1.4",
     "vite-plugin-vuetify": "^2.0.3",
     "vuetify": "^3.6.13"
   }

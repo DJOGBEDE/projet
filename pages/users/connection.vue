@@ -39,6 +39,7 @@ export default {
       showPassword: false,
       error: '',
       success: '',
+      userData: null,  // Pour stocker les données de l'utilisateur
       rules: {
         required: (value) => !!value || 'Ce champ est requis',
         email: (value) => {
@@ -60,10 +61,12 @@ export default {
         });
 
         const token = response.data.token; // Récupérer le token
-        console.log('Token:', token); // Afficher le token dans la console
         localStorage.setItem('token', token); // Stocker le token
 
-        // Optionnel : Vous pouvez afficher un message de succès
+        // Récupérer les données de l'utilisateur après une connexion réussie
+        await this.fetchUserData();
+
+        // Afficher un message de succès
         this.success = 'Connexion réussie !';
 
         // Redirection après connexion réussie
@@ -71,10 +74,27 @@ export default {
       } catch (error) {
         this.error = error.response ? error.response.data.message : 'Erreur lors de la connexion.';
       }
+    },
+    async fetchUserData() {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await axios.get('http://localhost:8080/api/user', {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          this.userData = response.data; // Stocker les données de l'utilisateur
+          console.log('User data:', this.userData); // Afficher les données de l'utilisateur dans la console
+        } catch (error) {
+          console.error('Erreur lors de la récupération des données de l\'utilisateur:', error);
+        }
+      }
     }
   }
 };
 </script>
+
 
 <style>
 /* Style optionnel */

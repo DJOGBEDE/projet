@@ -1,12 +1,13 @@
 <template>
   <v-app>
     <!-- Barre d'Outils -->
-    <v-app-bar app color="primary" dark>
+    <v-app-bar app color="primary" dark v-if="userData">
       <v-avatar class="ml-4">
-        <img :src="user.profilePicture" alt="Photo de profil" />
+        <img :src="userData.profilePicture" alt="Photo de profil" />
       </v-avatar>
-      <span class="ml-2">{{ user.name }}</span>
-      <span class="ml-2">{{ user.email }}</span>
+      <span class="ml-2">{{ userData.name }}</span>
+      <span class="ml-2">{{ userData.email }}</span>
+      <span class="ml-2">{{ userData.id }}</span>
       <v-spacer></v-spacer>
       <v-btn text @click="$router.push('/acceuil')">Accueil</v-btn>
       <v-btn text @click="$router.push('/users/profil')">Profil</v-btn>
@@ -16,8 +17,12 @@
       </v-btn>
       <v-btn icon @click="showNotifications">
         <v-icon>mdi-bell</v-icon>
-      </v-btn>
+      </v-btn>  
+     
     </v-app-bar>
+    <v-card-text v-else>
+        <p>Aucune donnée disponible.</p>
+    </v-card-text>
 
     <!-- Dialog de Déconnexion -->
     <v-dialog v-model="logoutDialog" max-width="350">
@@ -275,7 +280,7 @@ const tab = ref(0);
 const locationQuery = ref('');
 const search = ref('');
 const selectedServices = ref([]);
-const mapUrl = ref('https://www.google.com/maps?q=48.858844,2.294351');
+
 const services = ref([]);
 
 // Variables pour la gestion de la déconnexion et des messages
@@ -292,13 +297,6 @@ let longitude = ref(null);
 
 // Utilisation de router
 const router = useRouter();
-
-// Récupération des données d'utilisateur
-const user = ref({
-  name: 'Delkaël DJOGBEDE',
-  email: 'delkael107@gmail.com',
-  profilePicture: 'https://example.com/path-to-profile-picture.jpg',
-});
 
 // Récupération des ateliers
 const ateliers = ref([]);
@@ -410,6 +408,32 @@ const paginatedAteliers = computed(() => {
   return filteredServices.value.slice(start, end);
 });
 
+// Référence pour stocker les données de l'utilisateur
+const userData = ref(null); 
+
+const fetchUserData = async () => {
+  // Vérifiez si vous êtes dans le client
+  const token = process.client ? localStorage.getItem('token') : null; 
+  if (token) {
+    try {
+      // Appel de l'API pour récupérer les données de l'utilisateur
+      const response = await axios.get('http://localhost:8080/api/user', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      userData.value = response.data; // Stocker les données de l'utilisateur
+    } catch (error) {
+      console.error('Erreur lors de la récupération des données de l\'utilisateur:', error);
+      userData.value = null; // Réinitialiser en cas d'erreur
+    }
+  }
+};
+
+// Récupérer les données de l'utilisateur lorsque le composant est monté
+onMounted(() => {
+  fetchUserData();
+});
 // Fonction pour mettre à jour la page courante
 const updatePage = (page) => {
   currentPage.value = page;

@@ -85,7 +85,7 @@
 
               <v-divider class="my-4"></v-divider>
 
-              <v-btn color="error" @click="reserve" class="mt-4" style="width: 100%;">
+              <v-btn color="error" @click="openReservationDialog" class="mt-4" style="width: 100%;">
                 Réserver
               </v-btn>
             </div>
@@ -102,6 +102,58 @@
         </v-card>
       </v-col>
     </v-row>
+<!-- V-dialog pour la réservation -->
+<v-dialog v-model="reservationDialog" max-width="600px">
+      <v-card>
+        <v-card-title class="text-h5 font-weight-bold">
+          Réservation
+        </v-card-title>
+        <v-card-text>
+          <v-form>
+            <v-row>
+              <v-col cols="12">
+                <v-text-field
+                  label="Date"
+                  type="date"
+                  v-model="reservationDate"
+                  required
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  label="Heure"
+                  type="time"
+                  v-model="reservationTime"
+                  required
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12">
+                <v-autocomplete
+                  v-model="selectedServices"
+                  :items="serviceNames"
+                  label="Services"
+                  multiple
+                  required
+                  clearable
+                ></v-autocomplete>
+              </v-col>
+              <v-col cols="12">
+                <v-textarea
+                  v-model="reservationMessage"
+                  label="Message"
+                  outlined
+                ></v-textarea>
+              </v-col>
+            </v-row>
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn color="primary" @click="submitReservation">Envoyer</v-btn>
+          <v-btn text @click="reservationDialog = false">Annuler</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
   </v-container>
 </template>
 
@@ -120,6 +172,16 @@ const map = ref(null);
 const animatedMarker = ref(null);
 const userCircle = ref(null);
 let routeLine = null; // Pour stocker la ligne de l'itinéraire
+
+const reservationDialog = ref(false);
+const reservationDate = ref('');
+const reservationTime = ref('');
+const selectedServices = ref([]);
+const reservationMessage = ref('');
+const ateliers = ref({ id: null, services: [] });
+const serviceNames = ref([]);
+
+const userData = ref(null); 
 
 // Récupérer l'atelier en fonction de l'ID passé dans l'URL
 const route = useRoute();
@@ -269,10 +331,124 @@ function reserve() {
   // Logique pour réserver
   alert('Votre réservation a été effectuée!');
 }
+
+
+
+const fetchUserData = async () => {
+  // Vérifiez si vous êtes dans le client
+  const token = process.client ? localStorage.getItem('token') : null; 
+  if (token) {
+    try {
+      // Appel de l'API pour récupérer les données de l'utilisateur
+      const response = await axios.get('http://localhost:8080/api/user', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      userData.value = response.data; // Stocker les données de l'utilisateur
+    } catch (error) {
+      console.error('Erreur lors de la récupération des données de l\'utilisateur:', error);
+      userData.value = null; // Réinitialiser en cas d'erreur
+    }
+  }
+};
+
+
+
+const fetchAtelierId = () => {
+  ateliers.value.id = route.params.id; // Récupérer l'ID de l'atelier à partir des paramètres de la route
+};
+
+const fetchServices = async () => {
+  if (!ateliers.value.id) return; // Vérifier si l'ID de l'atelier est disponible
+
+  try {
+    const response = await axios.get(`http://localhost:8080/api/services?workshop_id=${ateliers.value.id}`);
+    ateliers.value.services = response.data; // Assigner les services récupérés
+    serviceNames.value = response.data.map(service => service.name); // Récupérer seulement les noms des services
+  } catch (error) {
+    console.error("Erreur lors de la récupération des services:", error);
+  }
+};
+
+// Fonction pour soumettre une réservation
+const submitReservation = async () => {
+  const atelier_id = parseInt(ateliers.value.id, 10);
+  const reservationData = {
+    user_id: userData.value.id,
+    atelier_id: atelier_id,
+    date: reservationDate.value,
+    time: reservationTime.value,
+    services: selectedServices.value,
+    message: reservationMessage.value,
+  };
+
+  try {
+    const response = await axios.post('http://localhost:8080/api/reservations', reservationData);
+    console.log('Réservation créée:', response.data);
+    alert('Votre réservation a été effectuée avec succès !');
+    reservationDialog.value = false;
+    resetForm();
+  } catch (error) {
+    console.error('Erreur lors de la création de la réservation:', error);
+    alert('Une erreur est survenue lors de la réservation. Veuillez réessayer.');
+  }
+};
+
+onMounted(async () => {
+  await fetchUserData();
+  fetchAtelierId();
+  await fetchServices();
+
+  // Votre code précédent pour l'initialisation de la carte et autres éléments continue ici
+});
+
+
+const resetForm = () => {
+  reservationDate.value = '';
+  reservationTime.value = '';
+  selectedServices.value = [];
+  reservationMessage.value = '';
+};
+
+// Appels de fonction lors de l'initialisation
+onMounted(async () => {
+  await fetchUserData();
+  fetchAtelierId();
+  await fetchServices();
+});
+
+// Ouvrir le dialogue de réservation
+const openReservationDialog = () => {
+  reservationDialog.value = true;
+};
 </script>
 
-<style>
+<style scoped>
+.bouncing-marker {
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-30px);
+  }
+  60% {
+    transform: translateY(-15px);
+  }
+}
+
 .info-text {
-  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  font-size: 1rem;
+}
+
+#map {
+  height: 500px;
+  width: 100%;
 }
 </style>

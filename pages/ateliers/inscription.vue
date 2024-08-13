@@ -95,7 +95,7 @@ export default {
     this.workshop.website = '';
     this.workshop.password = '';
     this.workshop.confirmPassword = '';
-    this.$router.push('/users/connection'); // Redirection après succès
+    this.$router.push('/atelier/connection'); // Redirection après succès
   } catch (error) {
     console.error('Erreur lors de la soumission du formulaire:', error);
   }

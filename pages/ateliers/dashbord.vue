@@ -1,19 +1,28 @@
 <template>
   <v-app>
     <!-- Barre d'Outils -->
-    <v-app-bar app color="primary" dark>
-      <v-toolbar-title>Tableau de Bord - Atelier</v-toolbar-title>
+    <v-app-bar app color="primary" dark v-if="userData">
+      <v-avatar class="ml-4">
+        <img :src="userData.profilePicture" alt="Photo de profil" />
+      </v-avatar>
+      <span class="ml-2">{{ userData.name }}</span>
+      <span class="ml-2">{{ userData.email }}</span>
+      <span class="ml-2">{{ userData.id }}</span>
       <v-spacer></v-spacer>
+     
       <v-btn text  @click="$router.push('/acceuil')">Accueil</v-btn>
       <v-btn text @click="goToProfile">Profil</v-btn>
+      <v-btn text @click="showLogoutDialog">Déconnexion</v-btn>
       <v-btn icon @click="goToMessages">
         <v-icon>mdi-email</v-icon>
       </v-btn>
       <v-btn icon @click="goToNotifications">
         <v-icon>mdi-bell</v-icon>
       </v-btn>
-      <v-btn text @click="showLogoutDialog">Déconnexion</v-btn>
     </v-app-bar>
+    <v-card-text v-else>
+        <p>Aucune donnée disponible.</p>
+    </v-card-text>
 
     <!-- Dialog de Déconnexion -->
     <v-dialog v-model="logoutDialog" max-width="350">
@@ -29,23 +38,88 @@
     </v-dialog>
 
     <!-- Contenu Principal -->
-    <v-main>
-      <router-view></router-view>
+    <v-main class="dashboard-content">
+      <!-- Texte de Bienvenue -->
+      <div class="welcome-text">
+        <h1>Bienvenue sur votre interface d'accueil</h1>
+        <p>Vous pouvez ici gérer vos actions telles que vos rendez-vous, services, paramètres, et plus encore.</p>
+      </div>
+
+      <!-- Cartes d'Actions -->
+      <v-container fluid>
+        <v-row justify="center" align="center">
+          <!-- Carte Vos Rendez-vous -->
+          <v-col cols="12" md="3">
+            <v-card @click="goToAppointments" class="clickable-card" color="blue lighten-4">
+              <v-card-title>
+                <v-icon x-large color="primary">mdi-calendar</v-icon>
+              </v-card-title>
+              <v-card-subtitle>Vos Rendez-vous</v-card-subtitle>
+            </v-card>
+          </v-col>
+
+          <!-- Carte Vos Services -->
+          <v-col cols="12" md="3">
+            <v-card @click="goToServices" class="clickable-card" color="green lighten-4">
+              <v-card-title>
+                <v-icon x-large color="primary">mdi-wrench</v-icon>
+              </v-card-title>
+              <v-card-subtitle>Vos Services</v-card-subtitle>
+            </v-card>
+          </v-col>
+
+          <!-- Carte Vos Paramètres -->
+          <v-col cols="12" md="3">
+            <v-card @click="goToSettings" class="clickable-card" color="red lighten-4">
+              <v-card-title>
+                <v-icon x-large color="primary">mdi-cog</v-icon>
+              </v-card-title>
+              <v-card-subtitle>Vos Paramètres</v-card-subtitle>
+            </v-card>
+          </v-col>
+
+          <!-- Carte Votre Profil -->
+          <v-col cols="12" md="3">
+            <v-card @click="goToProfile" class="clickable-card" color="purple lighten-4">
+              <v-card-title>
+                <v-icon x-large color="primary">mdi-account</v-icon>
+              </v-card-title>
+              <v-card-subtitle>Votre Profil</v-card-subtitle>
+            </v-card>
+          </v-col>
+
+          <!-- Carte Vos Statistiques -->
+          <v-col cols="12" md="3">
+            <v-card @click="goToStats" class="clickable-card" color="orange lighten-4">
+              <v-card-title>
+                <v-icon x-large color="primary">mdi-chart-bar</v-icon>
+              </v-card-title>
+              <v-card-subtitle>Vos Statistiques</v-card-subtitle>
+            </v-card>
+          </v-col>
+          <v-col cols="12" md="3">
+            <v-card @click="goToAcceuil" class="clickable-card" color="white lighten-1">
+              <v-card-title>
+                <v-icon x-large color="primary">mdi-home</v-icon>
+              </v-card-title>
+              <v-card-subtitle>Acceuil</v-card-subtitle>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-container>
     </v-main>
   </v-app>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+
+import { ref, computed, onMounted } from 'vue';
+import axios from 'axios';
+import { useRouter } from 'vue-router';
 
 const router = useRouter()
 
 const logoutDialog = ref(false)
-
-function goToHome() {
-  router.push('/atelier/home')
-}
 
 function goToProfile() {
   router.push('/ateliers/profil')
@@ -72,8 +146,94 @@ function logout() {
   console.log('Déconnecté')
   hideLogoutDialog()
 }
+
+function goToAppointments() {
+  router.push('/ateliers/rendezvous')
+}
+
+function goToServices() {
+  router.push('/ateliers/services')
+}
+
+function goToSettings() {
+  router.push('/ateliers/paramettres')
+}
+
+function goToStats() {
+  router.push('/ateliers/stats')
+}
+function goToAcceuil() {
+  router.push('/acceuil')
+}
+const userData = ref(null); 
+
+const fetchUserData = async () => {
+  // Vérifiez si vous êtes dans le client
+  const token = process.client ? localStorage.getItem('token') : null; 
+  if (token) {
+    try {
+      // Appel de l'API pour récupérer les données de l'utilisateur
+      const response = await axios.get('http://localhost:8080/api/atelier', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      userData.value = response.data; // Stocker les données de l'utilisateur
+      console.log(userData)
+    } catch (error) {
+      console.error('Erreur lors de la récupération des données de l\'utilisateur:', error);
+      userData.value = null; // Réinitialiser en cas d'erreur
+    }
+  }
+};
+
+// Récupérer les données de l'utilisateur lorsque le composant est monté
+onMounted(() => {
+  fetchUserData();
+})
 </script>
 
 <style scoped>
 /* Styles personnalisés pour le tableau de bord */
+.dashboard-content {
+  padding: 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+}
+
+.welcome-text {
+  margin-bottom: 30px;
+  font-size: 22px;
+  color: #424242;
+}
+
+.clickable-card {
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 15px;
+  padding: 20px;
+}
+
+.clickable-card:hover {
+  transform: scale(1.1);
+  box-shadow: 0px 10px 15px rgba(0, 0, 0, 0.2);
+}
+
+.v-card-title {
+  display: flex;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.v-card-subtitle {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #424242;
+}
 </style>

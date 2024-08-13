@@ -4,6 +4,7 @@
       <v-toolbar-title>Paramètres</v-toolbar-title>
       <v-spacer></v-spacer>
       <v-btn text @click="$router.push('/acceuil')">Acceuil</v-btn>
+      <v-btn text @click="$router.push('/ateliers/dashbord')">Tableau de bord</v-btn>
       <v-btn text @click="$router.push('/ateliers/profil')">Profil</v-btn>
       <v-btn text @click="$router.push('/ateliers/services')">Services</v-btn>
       <v-btn text @click="$router.push('/ateliers/rendezvous')">Rendez-vous</v-btn>
@@ -21,49 +22,7 @@
             
             <!-- Préférences -->
             <v-tabs-items v-model="tab">
-              <v-tab-item>
-                <v-card-text>
-                  <v-form>
-                    <!-- Préférences de Notification -->
-                    <v-row>
-                      <v-col cols="12">
-                        <h3>Préférences de Notification</h3>
-                        <v-checkbox
-                          v-model="preferences.emailNotifications"
-                          label="Recevoir des notifications par e-mail"
-                        ></v-checkbox>
-                        <v-checkbox
-                          v-model="preferences.smsNotifications"
-                          label="Recevoir des notifications par SMS"
-                        ></v-checkbox>
-                      </v-col>
-                    </v-row>
-  
-                    <!-- Préférences de Communication -->
-                    <v-row>
-                      <v-col cols="12">
-                        <h3>Préférences de Communication</h3>
-                        <v-checkbox
-                          v-model="preferences.emailCommunication"
-                          label="Communication par e-mail"
-                        ></v-checkbox>
-                        <v-checkbox
-                          v-model="preferences.phoneCommunication"
-                          label="Communication par téléphone"
-                        ></v-checkbox>
-                      </v-col>
-                    </v-row>
-  
-                    <v-row justify="center" class="mt-4">
-                      <v-col cols="12" md="4">
-                        <v-btn color="primary" @click="savePreferences">
-                          Sauvegarder
-                        </v-btn>
-                      </v-col>
-                    </v-row>
-                  </v-form>
-                </v-card-text>
-              </v-tab-item>
+              
   
               <!-- Avis -->
               <v-tab-item>
