@@ -5,7 +5,10 @@ from flask_jwt_extended import JWTManager, jwt_required, create_access_token, ge
 from flask_cors import CORS
 import psycopg2
 import bcrypt  # Assurez-vous d'importer bcrypt
-from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+
+import os
+
 
 
 app = Flask(__name__)
@@ -900,25 +903,6 @@ def upload_photos():
 
     return jsonify({"message": "Photos téléchargées avec succès", "photos": photos}), 200
 
-@app.route('/api/atelier/photos/<int:photo_id>', methods=['DELETE'])
-def delete_photo(photo_id):
-    atelier_id = 47  # Remplacez par l'ID de l'atelier concerné ou récupérez-le dynamiquement
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    # Mettre à jour la colonne photo avec NULL pour simuler la suppression
-    cur.execute(
-        "UPDATE ateliers SET photo = NULL WHERE id = %s",
-        (atelier_id,)
-    )
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({"message": "Photo supprimée avec succès"}), 200
-
 
 
 @app.route('/upload/<string:specific_id>', methods=['POST'])
@@ -947,6 +931,370 @@ def upload_image(specific_id):
             conn.close()  # Fermez la connexion à la base de données
     else:
         return jsonify({"error": "No image data provided"}), 400
+
+################################################################################################################
+
+import uuid
+
+# Route pour ajouter une photo de profil
+@app.route('/api/atelier/profile-picture', methods=['POST'])
+def add_profile_picture():
+    if 'profile_picture' not in request.files:
+        return jsonify({"message": "Aucun fichier n'a été téléchargé."}), 400
+    
+    profile_picture = request.files['profile_picture']
+
+    if profile_picture.filename == '':
+        return jsonify({"message": "Nom de fichier invalide."}), 400
+
+    # Définir le dossier d'upload
+    upload_folder = '/home/delkael/Téléchargements/projet2/mecano_project/public/uploads'
+    
+    # Créer le dossier s'il n'existe pas
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+    
+    # Utiliser l'ID de l'atelier qui peut être passé via le corps de la requête
+    workshop_id = request.form.get('workshop_id')  # Assurez-vous d'envoyer `workshop_id` dans la requête
+    
+    # Générer un nom de fichier unique avec un UUID
+    unique_id = uuid.uuid4()
+    file_path = os.path.join(upload_folder, f'workshop_{workshop_id}_profile_{unique_id}.jpg')
+    
+    try:
+        profile_picture.save(file_path)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Insérer le chemin de la photo de profil dans la base de données
+        cursor.execute("INSERT INTO photos_atelier (file_path, workshop_id) VALUES (%s, %s) RETURNING id", (file_path, workshop_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Photo de profil ajoutée avec succès.", "profilePictureUrl": file_path}), 201
+    except Exception as e:
+        return jsonify({"message": "Erreur lors de l'ajout de la photo.", "error": str(e)}), 500
+
+
+# Route pour récupérer toutes les photos
+@app.route('/api/atelier/photos/<int:workshop_id>', methods=['GET'])
+def get_photos(workshop_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT id, file_path FROM photos_atelier WHERE workshop_id = %s", (workshop_id,))
+    photos = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+    
+    # Formater les résultats pour les envoyer en JSON
+    return jsonify([
+        {"id": photo[0], "file_path": photo[1]}
+        for photo in photos
+    ]), 200
+
+# Route pour supprimer une photo par ID
+@app.route('/api/atelier/photos/<int:photo_id>/<int:workshop_id>', methods=['DELETE'])
+def delete_photo_atelier(photo_id, workshop_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Récupérer le chemin de la photo avant de la supprimer
+    cursor.execute("SELECT file_path FROM photos_atelier WHERE id = %s", (photo_id,))
+    photo = cursor.fetchone()
+    
+    if photo is None:
+        return jsonify({"message": "Photo non trouvée."}), 404
+    
+    # Supprimer la photo du système de fichiers
+    file_path = photo[0]
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+    # Supprimer l'entrée de la base de données
+    cursor.execute("DELETE FROM photos_atelier WHERE workshop_id = %s AND id = %s", (workshop_id, photo_id))
+    conn.commit()
+    
+    cursor.close()
+    conn.close()
+    
+############################################################################################################################
+
+
+@app.route('/api/discussions/<int:workshop_id>/messages', methods=['GET'])
+def get_discussions(workshop_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Modifiez la requête SQL pour filtrer par workshop_id
+    cursor.execute("""
+       SELECT * FROM notifications WHERE workshop_id = %s;
+    """, (workshop_id,))
+    
+    # Récupérez les résultats et transformez-les en une liste de dictionnaires
+    discussions = cursor.fetchall()
+    result = []
+    
+    for notification in discussions:
+        notification_dict = {
+            'id': notification[0],
+            'message': notification[1],
+            'type': notification[2],
+            'user_id': notification[3],
+            'created_at': notification[4],
+            'workshop_id': notification[5],
+            'workshop_messages': notification[6],
+        }
+        result.append(notification_dict)
+
+    cursor.close()
+    conn.close()
+    
+    return jsonify(result)  # Renvoie le résultat sous forme de JSON
+
+
+
+@app.route('/api/messages/<int:user_id>', methods=['GET'])
+def get_messages(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT workshop_messages, users_messages, created_at
+        FROM contactmessages
+        WHERE user_id = %s
+    """, (user_id,))
+    
+    messages = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    # Transforme les résultats en une liste de dictionnaires
+    result = [{'workshop_messages': msg[0], 'users_messages': msg[1], 'created_at': msg[2]} for msg in messages]
+    
+    return jsonify(result)
+
+@app.route('/api/messages', methods=['POST'])
+def send_message():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    data = request.get_json()
+    workshop_id = data.get('workshop_id')
+    user_id = data.get('user_id')
+    users_messages = data.get('users_messages')
+
+    cursor.execute("""
+        INSERT INTO contactmessages (workshop_id, user_id, users_messages)
+        VALUES (%s, %s, %s)
+    """, (workshop_id, user_id, users_messages))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return jsonify({'status': 'Message envoyé!'}), 201
+
+
+###############################################################################################################
+
+@app.route('/api/notifications/<int:workshop_id>', methods=['GET'])
+def get_notifications(workshop_id):
+    print(f"Fetching notifications for workshop ID: {workshop_id}")  # Debug message
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT *
+            FROM notifications
+            WHERE workshop_id = %s
+        """, (workshop_id,))
+        
+        notifications = cursor.fetchall()
+        print(f"Fetched notifications: {notifications}")  # Debug message
+    except Exception as e:
+        print(f"Error: {e}")  # Log the error for debugging
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+    
+    return jsonify(notifications)
+
+
+#########################################################################################################################################
+
+
+@app.route('/register/admin', methods=['POST'])
+def register_admin():
+    data = request.json
+    nom = data.get('nom')
+    mot_de_passe = data.get('mot_de_passe')
+    role = data.get('role', 'admin')  # Défaut au rôle 'admin'
+
+    if not nom or not mot_de_passe:
+        return jsonify({"message": "Nom et mot de passe sont obligatoires"}), 400
+
+    # Hacher le mot de passe
+    hashed_password = generate_password_hash(mot_de_passe)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            "INSERT INTO admin (nom, mot_de_passe, role) VALUES (%s, %s, %s)",
+            (nom, hashed_password, role)
+        )
+        conn.commit()
+        return jsonify({"message": "Admin inscrit avec succès"}), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/login/admin', methods=['POST'])
+def login_admin():
+    data = request.json
+    nom = data.get('nom')
+    mot_de_passe = data.get('mot_de_passe')
+
+    if not nom or not mot_de_passe:
+        return jsonify({"message": "Nom et mot de passe sont obligatoires"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT id, nom, mot_de_passe FROM admin WHERE nom = %s", (nom,))
+        admin = cursor.fetchone()
+
+        if admin and check_password_hash(admin[2], mot_de_passe):
+            return jsonify({"message": "Connexion réussie", "admin_id": admin[0]}), 200
+        else:
+            return jsonify({"message": "Nom ou mot de passe incorrect"}), 401
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/admin/<int:admin_id>', methods=['GET'])
+def get_admin_data(admin_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT id, nom, role FROM admin WHERE id = %s", (admin_id,))
+        admin = cursor.fetchone()
+
+        if admin:
+            admin_data = {
+                "id": admin[0],
+                "nom": admin[1],
+                "role": admin[2]
+            }
+            return jsonify(admin_data), 200
+        else:
+            return jsonify({"message": "Admin non trouvé"}), 404
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/api/users/all', methods=['GET'])
+def get_all_users():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT id, username, email, role, created_at, phone FROM users")
+        users = cursor.fetchall()
+
+        users_list = []
+        for user in users:
+            users_list.append({
+                "id": user[0],
+                "username": user[1],
+                "email": user[2],
+                "role": user[3],
+                "created_at": user[4],
+                "phone": user[5]
+            })
+
+        return jsonify(users_list), 200
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+def update_user_all(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    data = request.json
+    try:
+        cursor.execute("""
+            UPDATE users
+            SET username = %s, email = %s, role = %s, phone = %s
+            WHERE id = %s RETURNING id
+        """, (data['username'], data['email'], data['role'], data['phone'], user_id))
+        updated_id = cursor.fetchone()
+
+        if updated_id:
+            conn.commit()
+            return jsonify({"message": "Utilisateur mis à jour avec succès"}), 200
+        else:
+            return jsonify({"message": "Utilisateur non trouvé"}), 404
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/api/users', methods=['POST'])
+def add_user():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    data = request.json
+    try:
+        cursor.execute("""
+            INSERT INTO users (username, email, role, phone)
+            VALUES (%s, %s, %s, %s) RETURNING id
+        """, (data['username'], data['email'], data['role'], data['phone']))
+        user_id = cursor.fetchone()[0]
+        conn.commit()
+
+        # Récupérer l'utilisateur ajouté
+        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        user_dict = {
+            "id": user[0],
+            "username": user[1],
+            "email": user[2],
+            "role": user[3],
+            "phone": user[4],
+            "created_at": user[5].strftime('%Y-%m-%d %H:%M:%S')
+        }
+        return jsonify(user_dict), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
 
 
 if __name__ == '__main__':

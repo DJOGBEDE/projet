@@ -5,9 +5,9 @@
       <v-spacer></v-spacer>
       <v-btn text @click="$router.push('/acceuil')">Accueil</v-btn>
       <v-btn text @click="$router.push('/users/dashbord')">Tableau de bord</v-btn>
-      <v-btn icon @click="$router.push('/users/messages')">
+      <!-- <v-btn icon @click="$router.push('/users/messages')">
         <v-icon>mdi-email</v-icon>
-      </v-btn>
+      </v-btn> -->
       <v-btn icon @click="$router.push('/users/notifications')">
         <v-icon>mdi-bell</v-icon>
       </v-btn>

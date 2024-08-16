@@ -11,29 +11,93 @@
                   <v-toolbar-title>Utilisateurs</v-toolbar-title>
                   <v-spacer></v-spacer>
                   <v-btn color="primary" dark @click="fetchUsers">Rafraîchir</v-btn>
+                  <v-btn color="primary" dark @click="showAddDialog">Ajouter Utilisateur</v-btn>
                 </v-toolbar>
               </template>
               <template v-slot:item.action="{ item }">
                 <v-btn @click="editUser(item)" color="primary" icon>
                   <v-icon>mdi-pencil</v-icon>
                 </v-btn>
-                <v-btn @click="confirmDeleteUser(item.id)" color="red" icon>
-                  <v-icon>mdi-delete</v-icon>
-                </v-btn>
               </template>
             </v-data-table>
           </v-card-text>
         </v-card>
-        
-        <!-- Dialog pour confirmation de suppression -->
-        <v-dialog v-model="deleteDialog" max-width="500">
+
+        <!-- Dialog pour ajout d'utilisateur -->
+        <v-dialog v-model="addDialog" max-width="500">
           <v-card>
-            <v-card-title class="headline">Confirmer la suppression</v-card-title>
-            <v-card-text>Êtes-vous sûr de vouloir supprimer cet utilisateur ?</v-card-text>
+            <v-card-title class="headline">Ajouter un utilisateur</v-card-title>
+            <v-card-text>
+              <v-form ref="formAdd" v-model="formValid">
+                <v-text-field
+                  v-model="newUser.name"
+                  label="Nom d'utilisateur"
+                  required
+                ></v-text-field>
+                <v-text-field
+                  v-model="newUser.email"
+                  label="Email"
+                  type="email"
+                  required
+                ></v-text-field>
+                <v-text-field
+                  v-model="newUser.password"
+                  label="Mot de passe"
+                  type="password"
+                  required
+                ></v-text-field>
+                <v-text-field
+                  v-model="newUser.phone"
+                  label="Numéro de téléphone"
+                  required
+                ></v-text-field>
+              </v-form>
+            </v-card-text>
             <v-card-actions>
               <v-spacer></v-spacer>
-              <v-btn color="red" @click="deleteUser">Supprimer</v-btn>
-              <v-btn text @click="deleteDialog = false">Annuler</v-btn>
+              <v-btn color="primary" @click="addUser">Ajouter</v-btn>
+              <v-btn text @click="addDialog = false">Annuler</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Dialog pour modification d'utilisateur -->
+        <v-dialog v-model="editDialog" max-width="500">
+          <v-card>
+            <v-card-title class="headline">Modifier l'utilisateur</v-card-title>
+            <v-card-text>
+              <v-form ref="formEdit">
+                <v-text-field
+                  v-model="editedUser.username"
+                  label="Nom d'utilisateur"
+                  required
+                ></v-text-field>
+                <v-text-field
+                  v-model="editedUser.email"
+                  label="Email"
+                  required
+                ></v-text-field>
+                <v-text-field
+                  v-model="editedUser.role"
+                  label="Rôle"
+                  required
+                ></v-text-field>
+                <v-text-field
+                  v-model="editedUser.phone"
+                  label="Téléphone"
+                  required
+                ></v-text-field>
+                <v-text-field
+                  v-model="editedUser.created_at"
+                  label="Créé le"
+                  disabled
+                ></v-text-field>
+              </v-form>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn color="primary" @click="updateUser">Sauvegarder</v-btn>
+              <v-btn text @click="editDialog = false">Annuler</v-btn>
             </v-card-actions>
           </v-card>
         </v-dialog>
@@ -59,40 +123,77 @@ const headers = ref([
 // Stocker les utilisateurs récupérés
 const users = ref([])
 
-// Stocker l'ID de l'utilisateur à supprimer
-const userIdToDelete = ref(null)
-const deleteDialog = ref(false)
+// Stocker les informations de l'utilisateur à ajouter
+const newUser = ref({
+  name: '',
+  email: '',
+  password: '',
+  phone: ''
+})
+const addDialog = ref(false)
+const formValid = ref(false)
 
-// Fonction pour récupérer les utilisateurs via API
+// Stocker les informations de l'utilisateur en cours d'édition
+const editedUser = ref({
+  id: null,
+  username: '',
+  email: '',
+  role: '',
+  phone: '',
+  created_at: ''
+})
+const editDialog = ref(false)
+
+// Fonction pour récupérer les utilisateurs
 const fetchUsers = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/rese')
+    const response = await axios.get('http://localhost:8080/api/users/all')
     users.value = response.data
   } catch (error) {
     console.error('Erreur lors de la récupération des utilisateurs:', error)
   }
 }
 
-// Fonction pour éditer un utilisateur (logique à définir)
+// Fonction pour ouvrir le dialogue d'ajout
+function showAddDialog() {
+  newUser.value = {
+    username: '',
+    email: '',
+    password: '',
+    phone: ''
+  }
+  addDialog.value = true
+}
+
+// Fonction pour ajouter un nouvel utilisateur
+const addUser = async () => {
+  if (formValid.value) {
+    try {
+      const response = await axios.post('http://localhost:8080/api/register', newUser.value)
+      users.value.push(response.data)
+      addDialog.value = false
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout de l\'utilisateur:', error)
+    }
+  } else {
+    alert('Veuillez remplir tous les champs du formulaire.')
+  }
+}
+
+// Fonction pour ouvrir le dialogue d'édition
 function editUser(user) {
-  console.log('Modifier l\'utilisateur:', user)
-  // Logique pour éditer l'utilisateur
+  editedUser.value = { ...user } // Copier les informations de l'utilisateur
+  editDialog.value = true
 }
 
-// Fonction pour confirmer la suppression
-function confirmDeleteUser(id) {
-  userIdToDelete.value = id
-  deleteDialog.value = true
-}
-
-// Fonction pour supprimer un utilisateur via API
-const deleteUser = async () => {
+// Fonction pour mettre à jour les informations de l'utilisateur
+const updateUser = async () => {
   try {
-    await axios.delete(`http://localhost:8080/api/selectusers/${userIdToDelete.value}`)
-    users.value = users.value.filter(user => user.id !== userIdToDelete.value)
-    deleteDialog.value = false
+    await axios.put(`http://localhost:8080/api/users/${editedUser.value.id}`, editedUser.value)
+    users.value = users.value.map(user => (user.id === editedUser.value.id ? editedUser.value : user))
+    editDialog.value = false
   } catch (error) {
-    console.error('Erreur lors de la suppression de l\'utilisateur:', error)
+    console.error('Erreur lors de la mise à jour de l\'utilisateur:', error)
   }
 }
 
@@ -101,14 +202,3 @@ onMounted(() => {
   fetchUsers()
 })
 </script>
-
-<style scoped>
-/* Styles personnalisés */
-.v-card-title {
-  color: #1976D2;
-}
-
-.v-btn {
-  margin-right: 8px;
-}
-</style>

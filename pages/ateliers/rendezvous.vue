@@ -7,7 +7,7 @@
       <v-btn text @click="$router.push('/ateliers/dashbord')">Tableau de bord</v-btn>
       <v-btn text @click="$router.push('/ateliers/profil')">Profil</v-btn>
       <v-btn text @click="$router.push('/ateliers/services')">Services</v-btn>
-      <v-btn text @click="$router.push('/ateliers/stats')">Statistiques</v-btn>
+     
     </v-app-bar>
     <v-main>
       <v-container fluid>

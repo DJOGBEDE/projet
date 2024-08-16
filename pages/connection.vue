@@ -19,6 +19,11 @@
                 <v-btn color="secondary" class="white--text mx-2" large>Connexion Atelier</v-btn>
               </nuxt-link>
             </v-col>
+            <v-col cols="12" class="d-flex justify-center">
+              <nuxt-link to="/admin/connection">
+                <v-btn color="pink" class="white--text mx-2" large>Connexion Admin</v-btn>
+              </nuxt-link>
+            </v-col>
           </v-row>
         </v-card-text>
       </v-card>

@@ -49,6 +49,12 @@
                   </v-btn>
                 </v-col>
                 <v-col cols="12" md="6" class="mb-3">
+                  <v-btn color="green" @click="contactByPhone" class="d-flex align-center">
+                    <v-icon left>mdi-phone</v-icon>
+                    Contacter Watsapp
+                  </v-btn>
+                </v-col>
+                <v-col cols="12" md="6" class="mb-3">
                   <v-btn color="primary" @click="contactByEmail" class="d-flex align-center">
                     <v-icon left>mdi-email</v-icon>
                     Contacter par Email
@@ -69,19 +75,19 @@
 
               <v-divider class="my-4"></v-divider>
 
-              <v-row>
-                <v-col cols="12">
-                  <h4 class="font-weight-bold">Galerie Photos</h4>
-                  <v-img
-                    v-for="photo in atelier.photos"
-                    :key="photo"
-                    :src="photo"
-                    max-width="200"
-                    class="ma-2"
-                    transition="fade-transition"
-                  />
-                </v-col>
-              </v-row>
+              <v-carousel cycle show-arrows>
+  <v-carousel-item
+    v-for="photo in photos"
+    :key="photo.id"
+    :src="`/uploads/${photo.file_path.split('/').pop()}`"
+  >
+    <v-img
+      :src="`/uploads/${photo.file_path.split('/').pop()}`"
+      height="200"
+      contain
+    ></v-img>
+  </v-carousel-item>
+</v-carousel>
 
               <v-divider class="my-4"></v-divider>
 
@@ -155,6 +161,7 @@
     </v-dialog>
 
   </v-container>
+ 
 </template>
 
 <script setup>
@@ -182,6 +189,9 @@ const ateliers = ref({ id: null, services: [] });
 const serviceNames = ref([]);
 
 const userData = ref(null); 
+// Variables pour les fichiers photo
+const photos = ref([]);
+const profilePicture = ref(null);
 
 // Récupérer l'atelier en fonction de l'ID passé dans l'URL
 const route = useRoute();
@@ -287,6 +297,7 @@ function animateRoute(start, destination) {
   const steps = 100; // Nombre de pas d'animation
   const latStep = (destination[0] - start[0]) / steps;
   const lngStep = (destination[1] - start[1]) / steps;
+  
 
   animatedMarker.value = $leaflet.marker(start).addTo(map.value);
 
@@ -416,12 +427,29 @@ onMounted(async () => {
   await fetchUserData();
   fetchAtelierId();
   await fetchServices();
+  fetchPhotos()
 });
 
 // Ouvrir le dialogue de réservation
 const openReservationDialog = () => {
   reservationDialog.value = true;
 };
+
+// Fonction pour récupérer les photos
+async function fetchPhotos() {
+  const token = process.client ? localStorage.getItem('token') : null;
+  if (token) {
+    try {
+      const response = await axios.get(`http://localhost:8080/api/atelier/photos/${ateliers.value.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      photos.value = response.data;
+      console.log(photos)
+    } catch (error) {
+      console.error('Erreur lors de la récupération des photos:', error);
+    }
+  }
+}
 </script>
 
 <style scoped>

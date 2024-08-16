@@ -2,22 +2,55 @@
   <v-app>
     <!-- Barre d'Outils -->
     <v-app-bar app color="primary" dark v-if="userData">
-      <v-avatar class="ml-4">
-        <img :src="userData.profilePicture" alt="Photo de profil" />
-      </v-avatar>
+      <v-avatar class="ml-4 square-avatar">
+    <img :src="userData.profilePicture" alt="Photo de profil" />
+  </v-avatar>
       <span class="ml-2">{{ userData.name }}</span>
       <span class="ml-2">{{ userData.email }}</span>
-      <span class="ml-2">{{ userData.id }}</span>
+     
       <v-spacer></v-spacer>
       <v-btn text @click="$router.push('/acceuil')">Accueil</v-btn>
       <v-btn text @click="$router.push('/users/profil')">Profil</v-btn>
       <v-btn text @click="showLogoutDialog">Déconnexion</v-btn>
-      <v-btn icon @click="showMessages">
+      <!-- <v-btn icon @click="showMessages">
         <v-icon>mdi-email</v-icon>
-      </v-btn>
-      <v-btn icon @click="showNotifications">
-        <v-icon>mdi-bell</v-icon>
-      </v-btn>  
+      </v-btn> -->
+      <v-menu v-if="notifications.length > 0" offset-y>
+        <template #activator="{ props }">
+          <v-btn icon @click="openNotifications" v-bind="props">
+            <v-icon>mdi-bell</v-icon>
+            <div v-if="unviewedCount > 0" class="notification-dot"></div>
+          </v-btn>
+        </template>
+        <v-list min-width="300px">
+          <v-list-item-group>
+            <v-list-item
+              v-for="(notification, index) in notifications"
+              :key="index"
+              @click="openDialog(notification)"
+            >
+              <v-list-item-content>
+                <v-list-item-title>{{ notification.message }}</v-list-item-title>
+                <v-list-item-subtitle>{{ formatDate(notification.created_at) }}</v-list-item-subtitle>
+              </v-list-item-content>
+            </v-list-item>
+          </v-list-item-group>
+        </v-list>
+      </v-menu>
+
+      <v-dialog v-model="dialog" max-width="800px" width="100%" height="400px">
+  <v-card>
+    <v-card-title min-width="800px"  >{{ selectedNotification?.message }}</v-card-title>
+    <v-card-subtitle>{{ formatDate(selectedNotification?.created_at) }}</v-card-subtitle>
+    <v-card-text>
+      <p>Détails de la notification ici...</p>
+      <p>{{ selectedNotification?.workshop_messages }}</p>
+    </v-card-text>
+    <v-card-actions>
+      <v-btn color="primary" @click="dialog = false">Fermer</v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
      
     </v-app-bar>
     <v-card-text v-else>
@@ -128,8 +161,12 @@
                  
                   <v-col v-for="atelier in paginatedAteliers" :key="atelier.id" cols="12" sm="6" md="5">
                     <v-card @click="goToAtelier(atelier.id)" width="350px" class="d-flex flex-column ml-14">
-                      <v-img :src="atelier.image_url" alt="Photo de l'atelier" height="300px" class="mb-3"></v-img>
-                      <v-card-title>{{ atelier.name }}</v-card-title>
+                      <v-img 
+      :src="`/46371688-factory-vector-icon-style-is-bicolor-flat-symbol-blue-and-gray-colors-rounded-angles-white.jpg`" 
+      alt="Photo de l'atelier" 
+      height="300px" 
+      class="mb-3"
+    ></v-img>                      <v-card-title>{{ atelier.name }}</v-card-title>
                       <v-card-subtitle>{{ atelier.address }}</v-card-subtitle>
                       <v-card-subtitle>{{ atelier.opening_hours }}</v-card-subtitle>
                     </v-card>
@@ -514,8 +551,118 @@ const goToAtelier = (id) => {
   router.push(`/users/${id}`);
 };
 
+
+const unviewedCount = ref(0);
+const dialog = ref(false);
+const selectedNotification = ref(null);
+const workshopId = 47; // Remplace par l'ID de l'atelier
+
+// Récupère les notifications
+const fetchNotifications = async () => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/notifications/${workshopId}`);
+    notifications.value = response.data;
+    unviewedCount.value = notifications.value.length; // Compte les notifications non consultées
+  } catch (error) {
+    console.error('Erreur lors de la récupération des notifications:', error);
+  }
+};
+
+// Marquer les notifications comme consultées
+const markAsViewed = async () => {
+  if (unviewedCount.value > 0) {
+    try {
+      await axios.post(`http://localhost:8080/api/notifications/viewed/${workshopId}`);
+      notifications.value = []; // Vider les notifications après consultation
+      unviewedCount.value = 0; // Réinitialiser le compteur
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour des notifications:', error);
+    }
+  }
+};
+
+// Ouvre le dialogue avec les détails de la notification
+const openDialog = (notification) => {
+  selectedNotification.value = notification;
+  dialog.value = true;
+};
+
+// Formater la date
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleString(); // Formate selon vos besoins
+};
+
+onMounted(fetchNotifications);
+
 </script>
 
 <style scoped>
-/* Ajoutez votre CSS ici */
+/* Styles personnalisés pour le tableau de bord */
+.dashboard-content {
+  padding: 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+}
+
+.welcome-text {
+  margin-bottom: 30px;
+  font-size: 22px;
+  color: #424242;
+}
+
+.clickable-card {
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 15px;
+  padding: 20px;
+}
+
+.clickable-card:hover {
+  transform: scale(1.1);
+  box-shadow: 0px 10px 15px rgba(0, 0, 0, 0.2);
+}
+
+.v-card-title {
+  display: flex;
+  justify-content: center;
+  font-size: 30px;
+}
+
+.v-card-subtitle {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #424242;
+}
+
+.notification-icon {
+  position: relative;
+}
+
+.notification-dot {
+  position: absolute;
+  top: 0; /* Ajustez pour positionner le point légèrement sur l'icône */
+  right: -5px; /* Ajustez pour positionner le point à droite de l'icône */
+  width: 12px; /* Taille du point */
+  height: 12px; /* Taille du point */
+  background-color: red; /* Couleur du point */
+  border-radius: 50%; /* Pour un point circulaire */
+}
+
+.square-avatar {
+  width: 100px; /* Vous pouvez ajuster la largeur */
+  height: 100px; /* Vous pouvez ajuster la hauteur */
+  border-radius: 0; /* Supprimez le bord arrondi pour obtenir une forme carrée */
+}
+.square-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Ajuste l'image pour couvrir entièrement le conteneur */
+}
 </style>
