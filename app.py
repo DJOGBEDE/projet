@@ -485,14 +485,21 @@ def update_profile_picture(user_id):
     if profile_picture.filename == '':
         return jsonify({"message": "Nom de fichier invalide."}), 400
 
-    # Générer un chemin pour sauvegarder la photo
-    upload_folder = 'uploads'
+    # Définir le dossier d'upload
+    upload_folder = '/home/delkael/Téléchargements/projet2/mecano_project/public/upload'
+    
+    # Créer le dossier s'il n'existe pas
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
-    
+    # Chemin du fichier de photo de profil
     file_path = os.path.join(upload_folder, f'user_{user_id}_profile.jpg')
     
+    # Vérifier et supprimer l'ancien fichier s'il existe
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    
     try:
+        # Sauvegarder le nouveau fichier
         profile_picture.save(file_path)
 
         conn = get_db_connection()
@@ -1261,40 +1268,218 @@ def update_user_all(user_id):
         cursor.close()
         conn.close()
 
-@app.route('/api/users', methods=['POST'])
-def add_user():
+@app.route('/api/workshops/<int:id>', methods=['PUT'])
+def update_workshop(id):
     conn = get_db_connection()
     cursor = conn.cursor()
     data = request.json
+    name = data.get('name')
+    address = data.get('address')
+    phone_number = data.get('phone_number')
+    email = data.get('email')
+    website = data.get('website')
+
     try:
         cursor.execute("""
-            INSERT INTO users (username, email, role, phone)
-            VALUES (%s, %s, %s, %s) RETURNING id
-        """, (data['username'], data['email'], data['role'], data['phone']))
-        user_id = cursor.fetchone()[0]
+            UPDATE workshops
+            SET name = %s, address = %s, phone_number = %s, email = %s, website = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (name, address, phone_number, email, website, id))
+        
         conn.commit()
-
-        # Récupérer l'utilisateur ajouté
-        cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-        user = cursor.fetchone()
-        user_dict = {
-            "id": user[0],
-            "username": user[1],
-            "email": user[2],
-            "role": user[3],
-            "phone": user[4],
-            "created_at": user[5].strftime('%Y-%m-%d %H:%M:%S')
-        }
-        return jsonify(user_dict), 201
+        return jsonify({'message': 'Atelier mis à jour avec succès'}), 200
     except Exception as e:
         conn.rollback()
-        return jsonify({"message": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
     finally:
         cursor.close()
         conn.close()
 
+@app.route('/api/workshops', methods=['GET'])
+def get_workshops():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+       
+    try:
+        
+        cursor.execute("SELECT * FROM workshops")
+        workshops = cursor.fetchall()
+       
+        
+        return jsonify(workshops)
+    
+    except psycopg2.Error as e:
+        print(f'Erreur lors de la récupération des ateliers : {e}')
+        return jsonify({'error': 'Erreur lors de la récupération des ateliers'}), 500
+
+###################################################################################################################
+
+# API pour recevoir et stocker les informations de contact
+@app.route('/api/contact', methods=['POST'])
+def submit_contact():
+    data = request.json
+    
+    name = data.get('name')
+    email = data.get('email')
+    subject = data.get('subject')
+    message = data.get('message')
+
+    if not (name and email and subject and message):
+        return jsonify({"error": "All fields are required."}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            "INSERT INTO contacts (name, email, subject, message) VALUES (%s, %s, %s, %s)",
+            (name, email, subject, message)
+        )
+        conn.commit()
+        return jsonify({"message": "Contact information submitted successfully!"}), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
 
 
+@app.route('/api/support/tickets', methods=['GET'])
+def get_support_tickets():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("SELECT id, name, email, subject, message FROM contacts ORDER BY created_at DESC")
+        tickets = cur.fetchall()
+        return jsonify(tickets), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route('/api/support/respond', methods=['POST'])
+def respond_to_ticket():
+    data = request.json
+    contact_id = data.get('contact_id')
+    response_text = data.get('response')
+
+    if not (contact_id and response_text):
+        return jsonify({"error": "Missing contact ID or response text"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            "INSERT INTO responses (contact_id, response) VALUES (%s, %s)",
+            (contact_id, response_text)
+        )
+        conn.commit()
+        return jsonify({"message": "Response recorded successfully"}), 201
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route('/api/workshops/<int:workshop_id>/status', methods=['PUT'])
+def update_workshop_status(workshop_id):
+    data = request.get_json()
+    is_blocked = data.get('is_blocked')
+
+    if is_blocked is None:
+        return jsonify({"error": "Missing is_blocked field"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        # Calculez is_visible comme l'inverse de is_blocked
+        is_visible = not is_blocked
+
+        # Exécutez la requête SQL pour mettre à jour la colonne is_visible
+        cur.execute(
+            "UPDATE workshops SET is_visible = %s WHERE id = %s",
+            (is_visible, workshop_id)
+        )
+        conn.commit()
+        return jsonify({"message": "Workshop status updated successfully", "is_visible": is_visible}), 200
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        cur.close()
+        conn.close()
+
+
+#################################################################################################################
+
+@app.route('/localisations', methods=['GET'])
+def get_localisations():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, latitude, longitude FROM localisation")
+    localisations = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    # Convert to a list of dictionaries
+    result = [
+        {"id": loc[0], "lat": loc[1], "lon": loc[2]} 
+        for loc in localisations
+    ]
+    
+    return jsonify(result)
+
+
+@app.route('/workshops', methods=['GET'])
+def get_workshops_localisation():
+    ids = request.args.get('ids', '')
+    if not ids:
+        return jsonify([])  # Retourne une liste vide si aucun ID n'est fourni
+
+    ids_list = ids.split(',')
+    query = 'SELECT * FROM workshops WHERE id IN %s'
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (tuple(ids_list),))
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # Formatage des résultats en JSON
+        workshops = [
+            {
+                'id': row[0],
+                'name': row[1],
+                'address': row[2],
+                'phone': row[3],
+                'email': row[4],
+                'website': row[5],
+                'opening_hours': row[6],
+                'created_at': row[7],
+                'updated_at': row[8],
+                'password': row[9],
+                'latitude': row[10],
+                'longitude': row[11],
+                'description': row[12],
+                'active': row[13]
+            }
+            for row in rows
+        ]
+        return jsonify(workshops)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

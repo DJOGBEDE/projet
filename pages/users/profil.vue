@@ -5,9 +5,6 @@
       <v-spacer></v-spacer>
       <v-btn text @click="$router.push('/acceuil')">Accueil</v-btn>
       <v-btn text @click="$router.push('/users/dashbord')">Tableau de bord</v-btn>
-      <!-- <v-btn icon @click="$router.push('/users/messages')">
-        <v-icon>mdi-email</v-icon>
-      </v-btn> -->
       <v-btn icon @click="$router.push('/users/notifications')">
         <v-icon>mdi-bell</v-icon>
       </v-btn>
@@ -27,49 +24,37 @@
                   <v-btn type="submit" color="primary">Mettre à jour</v-btn>
                 </v-form>
               </v-card-text>
-
-             
             </v-card>
 
-            <v-container class="ml-10 mt-4 mb-4">
-    <v-img v-if="profilePictureUrl" :src="profilePictureUrl" class="profile-picture" />
-    <v-btn @click="fetchProfilePicture">Charger la photo de profil</v-btn>
-  </v-container>
+            
+          
             <v-card class="pa-4" outlined>
-    <v-card-title>Changer la photo de profil</v-card-title>
-    <v-card-text>
-      <!-- Afficher la photo de profil actuelle -->
-      <v-img 
-        :src="currentProfilePicture"
-        alt="Photo de profil actuelle"
-        max-height="150"
-        max-width="150"
-        class="mb-4"
-      />
-      
-      <!-- Prévisualisation de la nouvelle photo de profil -->
-      <v-img 
-        v-if="profilePicturePreview"
-        :src="profilePicturePreview"
-        alt="Prévisualisation de la nouvelle photo"
-        max-height="150"
-        max-width="150"
-        class="mb-4"
-      />
+              <v-card-title>Changer la photo de profil</v-card-title>
+              <v-card-text>
+                <!-- Afficher la photo de profil actuelle -->
+                <!-- Prévisualisation de la nouvelle photo de profil -->
+                <v-img 
+                  v-if="profilePicturePreview"
+                  :src="profilePicturePreview"
+                  alt="Prévisualisation de la nouvelle photo"
+                  max-height="150"
+                  max-width="150"
+                  class="mb-4"
+                />
 
-      <v-form @submit.prevent="uploadProfilePicture">
-        <v-file-input 
-          v-model="profilePicture"
-          label="Télécharger une nouvelle photo de profil"
-          accept="image/*"
-          prepend-icon="mdi-camera"
-          @change="previewProfilePicture"
-          required
-        />
-        <v-btn type="submit" color="primary">Mettre à jour la photo</v-btn>
-      </v-form>
-    </v-card-text>
-  </v-card>
+                <v-form @submit.prevent="uploadProfilePicture">
+                  <v-file-input 
+                    v-model="profilePicture"
+                    label="Télécharger une nouvelle photo de profil"
+                    accept="image/*"
+                    prepend-icon="mdi-camera"
+                    @change="previewProfilePicture"
+                    required
+                  />
+                  <v-btn type="submit" color="primary">Mettre à jour la photo</v-btn>
+                </v-form>
+              </v-card-text>
+            </v-card>
           </v-col>
         </v-row>
 
@@ -143,6 +128,7 @@
     </v-dialog>
   </v-app>
 </template>
+
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
@@ -157,8 +143,7 @@ const profile = ref({
 const userData = ref(null); 
 
 // Données pour les rendez-vous
-const appointments = ref([]);
-const resultats = ref({});
+const resultats = ref([]);
 
 // Préférences
 const preferences = ref({
@@ -173,17 +158,16 @@ const selectedAppointment = ref({});
 const profilePicture = ref(null);
 const profilePicturePreview = ref(null);
 const currentProfilePicture = ref('');  // URL de la photo de profil actuelle
-
-
 const profilePictureUrl = ref('');
-
-// Appel de la fonction pour charger l'image au démarrage
-
-
 
 // Fonction pour récupérer la photo de profil actuelle
 async function fetchProfilePicture() {
-  const token = process.client ? localStorage.getItem('token') : null; 
+  if (!userData.value || !userData.value.id) {
+    console.error('L\'ID de l\'utilisateur n\'est pas disponible.');
+    return;
+  }
+
+  const token = localStorage.getItem('token'); 
   try {
     const response = await axios.get(`http://localhost:8080/api/user/${userData.value.id}/profile-picture`, {
       headers: {
@@ -195,9 +179,6 @@ async function fetchProfilePicture() {
     console.error('Erreur lors de la récupération de la photo de profil', error);
   }
 }
-
-fetchProfilePicture();
-
 
 // Fonction pour prévisualiser la nouvelle photo de profil
 function previewProfilePicture() {
@@ -211,21 +192,26 @@ function previewProfilePicture() {
   }
 }
 
-
 async function uploadProfilePicture() {
+  if (!userData.value || !userData.value.id) {
+    console.error('L\'ID de l\'utilisateur n\'est pas disponible.');
+    return;
+  }
+
   const formData = new FormData();
   formData.append('profile_picture', profilePicture.value);
 
-  const token = localStorage.getItem('token'); // Récupérer le token d'authentification si nécessaire
+  const token = localStorage.getItem('token');
 
   try {
     const response = await axios.put(`http://localhost:8080/api/user/${userData.value.id}/profile-picture`, formData, {
       headers: {
-        Authorization: `Bearer ${token}`,  // Ajoutez le token si nécessaire
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'multipart/form-data'
       }
     });
     console.log('Photo de profil mise à jour', response.data);
+    fetchProfilePicture(); // Recharger la photo de profil après mise à jour
   } catch (error) {
     console.error('Erreur lors de la mise à jour de la photo de profil', error);
   }
@@ -233,7 +219,7 @@ async function uploadProfilePicture() {
 
 // Fonction pour récupérer les données de l'utilisateur
 const fetchUserData = async () => {
-  const token = process.client ? localStorage.getItem('token') : null; 
+  const token = localStorage.getItem('token'); 
   if (token) {
     try {
       const response = await axios.get('http://localhost:8080/api/user', {
@@ -241,13 +227,11 @@ const fetchUserData = async () => {
           Authorization: `Bearer ${token}`
         }
       });
-      userData.value = response.data; // Stocker les données de l'utilisateur
+      userData.value = response.data;
       
-      // Mettez à jour le profil avec les données récupérées
       profile.value.name = response.data.name;
       profile.value.email = response.data.email;
       profile.value.phone = response.data.phone;
-      
     } catch (error) {
       console.error('Erreur lors de la récupération des données de l\'utilisateur:', error);
       userData.value = null; 
@@ -255,70 +239,92 @@ const fetchUserData = async () => {
   }
 };
 
-
-
 // Fonction pour récupérer les rendez-vous
 async function fetchAppointments() {
-  if (userData.value) {
-    const userId = parseInt(userData.value.id, 10);
-    try {
-      const response = await axios.get(`http://localhost:8080/api/reservations/${userId}`);
-      resultats.value = response.data; // Stockez les résultats dans resultats
-      console.log(resultats.value);
-    } catch (error) {
-      console.error('Erreur lors de la récupération des rendez-vous', error);
-    }
+  if (!userData.value || !userData.value.id) {
+    console.error('L\'ID de l\'utilisateur n\'est pas disponible.');
+    return;
+  }
+
+  const token = localStorage.getItem('token'); 
+
+  try {
+    const response = await axios.get(`http://localhost:8080/api/user/${userData.value.id}/appointments`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    resultats.value = response.data;
+  } catch (error) {
+    console.error('Erreur lors de la récupération des rendez-vous', error);
   }
 }
 
 // Fonction pour mettre à jour le profil
 async function updateProfile() {
+  if (!userData.value || !userData.value.id) {
+    console.error('L\'ID de l\'utilisateur n\'est pas disponible.');
+    return;
+  }
+
   try {
-    await axios.put(`http://localhost:8080/api/user/${ userData.value.id}`, {
+    const response = await axios.put(`http://localhost:8080/api/user/${userData.value.id}`, {
       name: profile.value.name,
       email: profile.value.email,
       phone: profile.value.phone
     });
-    console.log('Informations mises à jour', profile.value);
+    console.log('Informations mises à jour', response.data);
   } catch (error) {
     console.error('Erreur lors de la mise à jour du profil', error);
   }
 }
 
-// Fonction pour afficher les détails du rendez-vous
-function viewDetails(id) {
-  const appointment = resultats.value.find(r => r.id === id);
-  if (appointment) {
-    selectedAppointment.value = appointment;
-    detailsDialog.value = true;
-  }
-}
-
-// Fonction pour annuler le rendez-vous
-async function cancelAppointment(id) {
-  try {
-    await axios.delete(`http://localhost:8080/api/reservations/${id}`);
-    resultats.value = resultats.value.filter(appointment => appointment.id !== id);
-    console.log('Rendez-vous annulé', id);
-  } catch (error) {
-    console.error('Erreur lors de l\'annulation du rendez-vous', error);
-  }
-}
-
 // Fonction pour mettre à jour les préférences
-async function updatePreferences(id) {
+async function updatePreferences() {
+  if (!userData.value || !userData.value.id) {
+    console.error('L\'ID de l\'utilisateur n\'est pas disponible.');
+    return;
+  }
+
   try {
-    await axios.put(`http://localhost:8080/api/user/${id}`);
+    await axios.put(`http://localhost:8080/api/user/preferences/${userData.value.id}`, preferences.value);
     console.log('Préférences mises à jour', preferences.value);
   } catch (error) {
     console.error('Erreur lors de la mise à jour des préférences', error);
   }
 }
 
-// Récupérer les données lors du chargement du composant
+// Fonction pour afficher les détails d'un rendez-vous
+function viewDetails(appointmentId) {
+  const appointment = resultats.value.find(app => app.id === appointmentId);
+  if (appointment) {
+    selectedAppointment.value = appointment;
+    detailsDialog.value = true;
+  }
+}
+
+// Fonction pour annuler un rendez-vous
+async function cancelAppointment(appointmentId) {
+  try {
+    await axios.delete(`http://localhost:8080/api/user/appointments/${appointmentId}`);
+    console.log('Rendez-vous annulé');
+    fetchAppointments(); // Recharger la liste des rendez-vous après annulation
+  } catch (error) {
+    console.error('Erreur lors de l\'annulation du rendez-vous', error);
+  }
+}
+
+// Appels de fonction lors du montage du composant
 onMounted(() => {
-  fetchUserData().then(() => {
-    fetchAppointments(); // Appel des rendez-vous après que l'utilisateur a été récupéré
-  });
+  fetchUserData();
+  fetchAppointments();
 });
 </script>
+
+<style scoped>
+.profile-picture {
+  border-radius: 50%;
+  max-height: 150px;
+  max-width: 150px;
+}
+</style>

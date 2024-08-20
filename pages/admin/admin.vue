@@ -8,7 +8,7 @@
             <h1 class="text-h4 font-weight-bold">Tableau de Bord Administrateur</h1>
           </v-col>
           <v-col cols="12" md="4" class="text-md-right">
-            <v-btn color="primary" dark @click="logout">
+            <v-btn color="primary" dark @click="goTo('/acceuil')">
               <v-icon left>mdi-logout</v-icon> Déconnexion
             </v-btn>
           </v-col>

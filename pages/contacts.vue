@@ -66,15 +66,32 @@ const contact = ref({
   message: ''
 })
 
-const submitForm = () => {
-  // Logique de soumission du formulaire, comme l'envoi des données à une API
-  console.log('Formulaire de contact soumis:', contact.value)
-  // Réinitialiser le formulaire après soumission
-  contact.value.name = ''
-  contact.value.email = ''
-  contact.value.subject = ''
-  contact.value.message = ''
-}
+const submitForm = async () => {
+  try {
+    const response = await fetch('http://localhost:8080/api/contact', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(contact.value),
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      console.log('Formulaire de contact soumis:', result.message);
+      // Réinitialiser le formulaire après soumission
+      contact.value.name = ''
+      contact.value.email = ''
+      contact.value.subject = ''
+      contact.value.message = ''
+    } else {
+      console.error('Erreur lors de la soumission:', result.error);
+    }
+  } catch (error) {
+    console.error('Erreur lors de la soumission:', error);
+  }
+};
 
 const openLink = (url) => {
   window.open(url, '_blank')

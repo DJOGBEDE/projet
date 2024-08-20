@@ -85,7 +85,7 @@
             <transition name="fade">
               <div>
                 <h2 class="headline">Contactez-nous</h2>
-                <v-btn color="primary" class="white--text" @click="navigateTo('contact')">Nous Contacter</v-btn>
+                <v-btn color="primary" class="white--text" @click="navigateTo('contacts')">Nous Contacter</v-btn>
               </div>
             </transition>
           </v-col>
