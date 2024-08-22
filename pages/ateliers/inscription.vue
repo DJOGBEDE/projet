@@ -7,26 +7,30 @@
             <v-card>
               <v-card-title class="headline">Inscription Atelier</v-card-title>
               <v-card-text>
-                <v-form @submit.prevent="submitForm">
+                <v-form @submit.prevent="submitForm" ref="form">
                   <v-text-field
                     v-model="workshop.name"
                     label="Nom de l'atelier"
+                    :rules="[v => !!v || 'Le nom de l\'atelier est requis']"
                     required
                   ></v-text-field>
                   <v-text-field
                     v-model="workshop.address"
                     label="Adresse"
+                    :rules="[v => !!v || 'L\'adresse est requise']"
                     required
                   ></v-text-field>
                   <v-text-field
                     v-model="workshop.phone"
                     label="Numéro de téléphone"
+                    :rules="[v => !!v || 'Le numéro de téléphone est requis']"
                     required
                   ></v-text-field>
                   <v-text-field
                     v-model="workshop.email"
                     label="Adresse e-mail"
                     type="email"
+                    :rules="[v => !!v || 'L\'adresse e-mail est requise', v => /.+@.+\..+/.test(v) || 'Adresse e-mail invalide']"
                     required
                   ></v-text-field>
                   <v-text-field
@@ -35,14 +39,20 @@
                   ></v-text-field>
                   <v-text-field
                     v-model="workshop.password"
+                    :append-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                    :type="showPassword ? 'text' : 'password'"
+                    @click:append="showPassword = !showPassword"
                     label="Mot de passe"
-                    type="password"
+                    :rules="[v => !!v || 'Le mot de passe est requis', v => v.length >= 7 || 'Le mot de passe doit contenir au moins 7 caractères']"
                     required
                   ></v-text-field>
                   <v-text-field
                     v-model="workshop.confirmPassword"
+                    :append-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                    :type="showPassword ? 'text' : 'password'"
+                    @click:append="showPassword = !showPassword"
                     label="Confirmer le mot de passe"
-                    type="password"
+                    :rules="[v => !!v || 'La confirmation du mot de passe est requise', v => v === workshop.password || 'Les mots de passe ne correspondent pas']"
                     required
                   ></v-text-field>
                   <v-btn color="primary" class="white--text" type="submit">S'inscrire</v-btn>
@@ -58,7 +68,7 @@
 </template>
 
 <script>
-import axios from 'axios'; // N'oubliez pas d'importer axios
+import axios from 'axios';
 
 export default {
   data() {
@@ -71,36 +81,34 @@ export default {
         website: '',
         password: '',
         confirmPassword: ''
-      }
+      },
+      showPassword: false
     };
   },
   methods: {
     async submitForm() {
-  try {
-    console.log('Mot de passe:', this.workshop.password);
-    console.log('Confirmer le mot de passe:', this.workshop.confirmPassword);
-    
-    if (this.workshop.password.trim() !== this.workshop.confirmPassword.trim()) {
-      throw new Error("Les mots de passe ne correspondent pas");
+      const isValid = this.$refs.form.validate();
+      if (!isValid) {
+        return;
+      }
+
+      try {
+        const response = await axios.post('http://localhost:8080/api/workshops', this.workshop);
+        console.log('Formulaire soumis:', response.data);
+        
+        // Réinitialiser le formulaire après soumission
+        this.workshop.name = '';
+        this.workshop.address = '';
+        this.workshop.phone = '';
+        this.workshop.email = '';
+        this.workshop.website = '';
+        this.workshop.password = '';
+        this.workshop.confirmPassword = '';
+        this.$router.push('/ateliers/connection'); // Redirection après succès
+      } catch (error) {
+        console.error('Erreur lors de la soumission du formulaire:', error);
+      }
     }
-
-    const response = await axios.post('http://localhost:8080/api/workshops', this.workshop);
-    console.log('Formulaire soumis:', response.data);
-    
-    // Réinitialiser le formulaire après soumission
-    this.workshop.name = '';
-    this.workshop.address = '';
-    this.workshop.phone = '';
-    this.workshop.email = '';
-    this.workshop.website = '';
-    this.workshop.password = '';
-    this.workshop.confirmPassword = '';
-    this.$router.push('/atelier/connection'); // Redirection après succès
-  } catch (error) {
-    console.error('Erreur lors de la soumission du formulaire:', error);
-  }
-}
-
   }
 };
 </script>

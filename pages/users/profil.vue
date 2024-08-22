@@ -5,9 +5,8 @@
       <v-spacer></v-spacer>
       <v-btn text @click="$router.push('/acceuil')">Accueil</v-btn>
       <v-btn text @click="$router.push('/users/dashbord')">Tableau de bord</v-btn>
-      <v-btn icon @click="$router.push('/users/notifications')">
-        <v-icon>mdi-bell</v-icon>
-      </v-btn>
+      
+      
     </v-app-bar>
     <v-main>
       <v-container fluid>
@@ -21,6 +20,7 @@
                   <v-text-field v-model="profile.name" label="Nom" required />
                   <v-text-field v-model="profile.email" label="Email" type="email" required />
                   <v-text-field v-model="profile.phone" label="Numéro de Téléphone" />
+               
                   <v-btn type="submit" color="primary">Mettre à jour</v-btn>
                 </v-form>
               </v-card-text>
@@ -232,6 +232,7 @@ const fetchUserData = async () => {
       profile.value.name = response.data.name;
       profile.value.email = response.data.email;
       profile.value.phone = response.data.phone;
+      profile.value.id = response.data.id;
     } catch (error) {
       console.error('Erreur lors de la récupération des données de l\'utilisateur:', error);
       userData.value = null; 
@@ -239,26 +240,29 @@ const fetchUserData = async () => {
   }
 };
 
-// Fonction pour récupérer les rendez-vous
 async function fetchAppointments() {
+  const token = localStorage.getItem('token'); 
   if (!userData.value || !userData.value.id) {
     console.error('L\'ID de l\'utilisateur n\'est pas disponible.');
     return;
   }
 
-  const token = localStorage.getItem('token'); 
+  console.log('Token:', token);
+  console.log('User ID:', userData.value.id);
 
   try {
-    const response = await axios.get(`http://localhost:8080/api/user/${userData.value.id}/appointments`, {
+    const response = await axios.get(`http://localhost:8080/api/rendezvous/user/${userData.value.id}`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
     });
+    console.log('Réponse API:', response.data);
     resultats.value = response.data;
   } catch (error) {
     console.error('Erreur lors de la récupération des rendez-vous', error);
   }
 }
+
 
 // Fonction pour mettre à jour le profil
 async function updateProfile() {
@@ -306,7 +310,7 @@ function viewDetails(appointmentId) {
 // Fonction pour annuler un rendez-vous
 async function cancelAppointment(appointmentId) {
   try {
-    await axios.delete(`http://localhost:8080/api/user/appointments/${appointmentId}`);
+    await axios.delete(`http://localhost:8080/api/rendezvous/user/${appointmentId}`);
     console.log('Rendez-vous annulé');
     fetchAppointments(); // Recharger la liste des rendez-vous après annulation
   } catch (error) {
@@ -314,11 +318,12 @@ async function cancelAppointment(appointmentId) {
   }
 }
 
-// Appels de fonction lors du montage du composant
-onMounted(() => {
-  fetchUserData();
+onMounted(async () => {
+  console.log('Montage du composant - Appels API');
+  await fetchUserData();
   fetchAppointments();
 });
+
 </script>
 
 <style scoped>

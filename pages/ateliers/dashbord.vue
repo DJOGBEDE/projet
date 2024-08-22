@@ -2,42 +2,20 @@
   <v-app>
     <!-- Barre d'Outils -->
     <v-app-bar app color="primary" dark v-if="userData">
-      <v-avatar class="ml-4">
-        <img :src="userData.profilePicture" alt="Photo de profil" />
-      </v-avatar>
+    
       <span class="ml-2">{{ userData.name }}</span>
       <span class="ml-2">{{ userData.email }}</span>
-      <span class="ml-2">{{ userData.id }}</span>
+      
       <v-spacer></v-spacer>
      
       <v-btn text  @click="$router.push('/acceuil')">Accueil</v-btn>
       <v-btn text @click="goToProfile">Profil</v-btn>
+      
       <v-btn text @click="showLogoutDialog">Déconnexion</v-btn>
       <!-- <v-btn icon @click="goToMessages">
         <v-icon>mdi-email</v-icon>
       </v-btn> -->
-      <v-menu v-if="notifications.length > 0" offset-y>
-        <template #activator="{ props }">
-          <v-btn icon @click="openNotifications" v-bind="props">
-            <v-icon>mdi-bell</v-icon>
-            <div v-if="unviewedCount > 0" class="notification-dot"></div>
-          </v-btn>
-        </template>
-        <v-list min-width="300px">
-          <v-list-item-group>
-            <v-list-item
-              v-for="(notification, index) in notifications"
-              :key="index"
-              @click="openDialog(notification)"
-            >
-              <v-list-item-content>
-                <v-list-item-title>{{ notification.message }}</v-list-item-title>
-                <v-list-item-subtitle>{{ formatDate(notification.created_at) }}</v-list-item-subtitle>
-              </v-list-item-content>
-            </v-list-item>
-          </v-list-item-group>
-        </v-list>
-      </v-menu>
+    
 
     <v-dialog v-model="dialog" max-width="800px" width="100%" height="400px">
   <v-card>
@@ -169,7 +147,7 @@ function hideLogoutDialog() {
 
 function logout() {
   // Logique pour la déconnexion
-  console.log('Déconnecté')
+  router.push('/acceuil')
   hideLogoutDialog()
 }
 

@@ -10,10 +10,10 @@
     "postinstall": "nuxt prepare",
     "start-api": "python3 app.py",
     "start": "concurrently \"npm run dev\" \"npm run start-api\""
-   
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
+    "@vueuse/core": "^11.0.1",
     "axios": "^1.7.2",
     "leaflet": "^1.9.4",
     "leaflet-routing-machine": "^3.2.12",
@@ -27,6 +27,6 @@
     "concurrently": "^8.2.2",
     "nodemon": "^3.1.4",
     "vite-plugin-vuetify": "^2.0.3",
-    "vuetify": "^3.6.13"
+    "vuetify": "^3.7.0"
   }
 }

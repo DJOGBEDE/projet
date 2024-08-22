@@ -32,6 +32,64 @@
           </v-col>
         </v-row>
 
+        
+    <!-- Carte pour l'enregistrement de la position -->
+    <v-card class="mb-4">
+      <v-card-title>Enregistrer votre position</v-card-title>
+      <v-card-text>
+        <v-btn color="primary" @click="getLocation">Enregistrer la position actuelle</v-btn>
+        <p v-if="location">Position enregistrée : {{ location.latitude }}, {{ location.longitude }}</p>
+        <v-alert v-if="locationError" type="error" dismissible>{{ locationError }}</v-alert>
+      </v-card-text>
+    </v-card>
+
+    <!-- Formulaire pour enregistrer/modifier l'heure d'ouverture -->
+    <v-card class="mb-4">
+      <v-card-title>Enregistrer / Modifier l'heure d'ouverture</v-card-title>
+      <v-card-text>
+        <v-form ref="form" v-model="valid" lazy-validation>
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="openingTime"
+                label="Heure d'ouverture"
+                type="time"
+                required
+              ></v-text-field>
+            </v-col>
+          </v-row>
+          <v-btn color="success" :disabled="!valid" @click="saveOpeningTime">
+            Enregistrer l'heure
+          </v-btn>
+          <p v-if="savedOpeningTime">Heure d'ouverture enregistrée : {{ savedOpeningTime }}</p>
+        </v-form>
+      </v-card-text>
+    </v-card>
+
+    <!-- Carte pour modifier l'heure d'ouverture -->
+    <v-card>
+      <v-card-title>Modifier l'heure d'ouverture</v-card-title>
+      <v-card-text>
+        <v-form ref="modifyForm" v-model="validModify" lazy-validation>
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="newOpeningTime"
+                label="Nouvelle heure d'ouverture"
+                type="time"
+                required
+              ></v-text-field>
+            </v-col>
+          </v-row>
+          <v-btn color="warning" :disabled="!validModify" @click="modifyOpeningTime">
+            Modifier l'heure
+          </v-btn>
+          <p v-if="modifiedOpeningTime">Nouvelle heure d'ouverture : {{ modifiedOpeningTime }}</p>
+        </v-form>
+      </v-card-text>
+    </v-card>
+
+
         <v-row>
           <!-- Formulaire pour ajouter une photo de profil -->
           <v-col cols="12">
@@ -53,6 +111,7 @@
           </v-col>
         </v-row>
       </v-container>
+      
     </v-main>
   </v-app>
 </template>
@@ -60,6 +119,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { useGeolocation } from '@vueuse/core'
 
 // Définition du profil de l'atelier
 const profile = ref({
@@ -68,6 +128,7 @@ const profile = ref({
   phone: '',
   email: '',
   website: '',
+  heures: '',
 });
 
 // Variables pour les fichiers photo
@@ -119,6 +180,7 @@ async function fetchUserData() {
         phone: response.data.phone_number,
         address: response.data.adresse,
         website: response.data.website,
+        heures: response.data.opening_hours
       });
 
       // Récupérer les photos de profil
@@ -204,6 +266,61 @@ function previewImage() {
 onMounted(() => {
   fetchUserData();
 });
+
+;
+
+const location = ref(null);
+const locationError = ref(null);
+const openingTime = ref('');
+const newOpeningTime = ref('');
+const savedOpeningTime = ref('');
+const modifiedOpeningTime = ref('');
+
+const getLocation = () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        location.value = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        savePositionAndTime(); // Enregistrer la position et l'heure d'ouverture dans la base de données
+      },
+      (error) => {
+        locationError.value = error.message;
+      }
+    );
+  } else {
+    locationError.value = "La géolocalisation n'est pas supportée par votre navigateur.";
+  }
+};
+
+const savePositionAndTime = async () => {
+  try {
+    const response = await axios.post('http://localhost:8080/save-workshop', {
+      id: userData.value.id, // Remplacez par l'ID de l'atelier à enregistrer
+      latitude: location.value.latitude,
+      longitude: location.value.longitude,
+      openingTime: openingTime.value,
+    });
+    savedOpeningTime.value = response.data.opening_hours;
+  } catch (error) {
+    console.error('Erreur lors de l\'enregistrement de la position et de l\'heure d\'ouverture :', error);
+  }
+};
+
+const modifyOpeningTime = async () => {
+  try {
+    const response = await axios.post('http://localhost:8080/save-workshop', {
+      id: userData.value.id, // Remplacez par l'ID de l'atelier à modifier
+      openingTime: newOpeningTime.value,
+    });
+    modifiedOpeningTime.value = response.data.opening_hours;
+  } catch (error) {
+    console.error('Erreur lors de la modification de l\'heure d\'ouverture :', error);
+  }
+};
+
 </script>
 
 <style scoped>
@@ -212,5 +329,29 @@ onMounted(() => {
 }
 .mb-4 {
   margin-bottom: 16px;
+}
+
+.position-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.v-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.v-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.v-btn {
+  transition: background-color 0.3s ease;
+}
+
+.v-btn:hover {
+  background-color: #004d40;
 }
 </style>

@@ -18,42 +18,47 @@
       <!-- <v-btn icon @click="showMessages">
         <v-icon>mdi-email</v-icon>
       </v-btn> -->
-      <v-menu v-if="notifications.length > 0" offset-y>
-        <template #activator="{ props }">
-          <v-btn icon @click="openNotifications" v-bind="props">
-            <v-icon>mdi-bell</v-icon>
-            <div v-if="unviewedCount > 0" class="notification-dot"></div>
-          </v-btn>
-        </template>
-        <v-list min-width="300px">
-          <v-list-item-group>
-            <v-list-item
-              v-for="(notification, index) in notifications"
-              :key="index"
-              @click="openDialog(notification)"
+   
+  
+        <v-btn icon @click="dialog = true" >
+          <v-icon>mdi-bell</v-icon>
+          <div v-if="unviewedCount > 0" class="notification-dot"></div>
+        </v-btn>
+      
+       <!-- Dialogue pour afficher les notifications -->
+    <v-dialog v-model="dialog" max-width="600px">
+      <v-card>
+        <v-card-title>
+          <span class="headline">Notifications</span>
+        </v-card-title>
+        <v-card-text>
+          <p>Nombre de notifications non consultées : {{ unviewedCount }}</p>
+          <ul v-if="notifications.length > 0" class="notifications-list">
+            <li 
+              v-for="notification in notifications" 
+              :key="notification.id" 
+              class="notification-item"
+              @click="toggleNotification(notification.id)"
             >
-              <v-list-item-content>
-                <v-list-item-title>{{ notification.message }}</v-list-item-title>
-                <v-list-item-subtitle>{{ formatDate(notification.created_at) }}</v-list-item-subtitle>
-              </v-list-item-content>
-            </v-list-item>
-          </v-list-item-group>
-        </v-list>
-      </v-menu>
-
-      <v-dialog v-model="dialog" max-width="800px" width="100%" height="400px">
-  <v-card>
-    <v-card-title min-width="800px"  >{{ selectedNotification?.message }}</v-card-title>
-    <v-card-subtitle>{{ formatDate(selectedNotification?.created_at) }}</v-card-subtitle>
-    <v-card-text>
-      <p>Détails de la notification ici...</p>
-      <p>{{ selectedNotification?.workshop_messages }}</p>
-    </v-card-text>
-    <v-card-actions>
-      <v-btn color="primary" @click="dialog = false">Fermer</v-btn>
-    </v-card-actions>
-  </v-card>
-</v-dialog>
+              <div class="notification-summary">
+                <strong>Message:</strong> {{ notification.message }}<br />
+                <strong>Type:</strong> {{ notification.type }}<br />
+                <strong>Date:</strong> {{ new Date(notification.date).toLocaleString() }}<br />
+                <strong>Vient de:</strong> {{ notification.workshopName }}
+              </div>
+              <div v-if="notification.showDetails" class="notification-details">
+                <p>Contenu complet de la notification...</p>
+              </div>
+            </li>
+          </ul>
+          <p v-else>Aucune notification disponible.</p>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn color="primary" @click="dialog = false">Fermer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+  
      
     </v-app-bar>
     <v-card-text v-else>
@@ -139,14 +144,17 @@
         />
         <div v-if="loading">Chargement des données...</div>
         <div v-if="error" class="error">{{ error }}</div>
-        <v-btn  @click="fetchLocationData" class="ml-10 mb-4" color="primary">
+        <v-btn  @click="fetchLocationData" class="ml-10 mb-10" color="primary">
           Rechercher...
+        </v-btn>
+        <v-btn  @click="getLocation" class="ml-1 mb-10" color="primary">
+          Utiliser ma localisation
         </v-btn>
         <div class="mb-4">
      
-      <v-btn color="green" @click="setDistanceRange(5, 10)">5-10 km</v-btn>
-      <v-btn class="ml-4" color="pink" @click="setDistanceRange(10, 15)">10-15 km</v-btn>
-      <v-btn class="ml-4" color="red" @click="setDistanceRange(15, null)">15 km et plus</v-btn>
+      <v-btn class="ml-9" color="green" @click="setDistanceRange(0, 5)">0-5 km</v-btn>
+      <v-btn class="ml-2" color="pink" @click="setDistanceRange(0, 10)">0-10 km</v-btn>
+      <v-btn class="ml-2" color="red" @click="setDistanceRange(4, null)">10 km et plus</v-btn>
     </div>
 
         <!-- Carte Interactive et Liste des Ateliers -->
@@ -171,7 +179,7 @@
             <v-col v-for="atelier in paginatedAteliersL" :key="atelier.id" cols="12" sm="6" md="4">
               <v-card @click="goToAtelier(atelier.id)" width="350px" class="d-flex flex-column ml-14">
                 <v-img 
-                  :src="atelier.image || '/default-image.jpg'" 
+                :src="`/46371688-factory-vector-icon-style-is-bicolor-flat-symbol-blue-and-gray-colors-rounded-angles-white.jpg`" 
                   alt="Photo de l'atelier" 
                   height="200px" 
                   class="mb-3"
@@ -208,102 +216,55 @@
         </v-row>
       </v-tab-item>
 
-      <!-- Recherche par Services -->
-      <v-tab-item v-if="tab === 1">
-        <v-text-field
-          v-model="search"
-          density="comfortable"
-          placeholder="Rechercher un service"
-          prepend-inner-icon="mdi-magnify"
-          style="max-width: 900px;"
-          variant="solo"
-          clearable
-          hide-details
-          class="mb-4 ml-4"
-        />
-        <!-- Liste des Ateliers pour Recherche par Services -->
-        <v-card class="pa-4" outlined>
-          <v-card-title>Liste des Ateliers</v-card-title>
-          <v-container>
-            <v-row>
-              <v-col v-for="service in paginatedServices" :key="service.id" cols="12" sm="6" md="6">
-                <v-card @click="goToAtelier(service.workshop_id)" class="mb-4" outlined>
-                  <v-card-title>{{ service.name }}</v-card-title>
-                  <v-card-subtitle>{{ service.description }}</v-card-subtitle>
-                  <v-card-text>
-                    <div v-if="getAtelierById(service.workshop_id)">
-                      <h3>Atelier Associé :</h3>
-                      <v-list dense>
-                        <v-list-item>
-                          <v-list-item-icon>
-                            <v-icon>mdi-store</v-icon>
-                          </v-list-item-icon>
-                          <v-list-item-content>
-                            <v-list-item-title class="text-subtitle-1">
-                              <strong>Nom:</strong> {{ getAtelierById(service.workshop_id).name }}
-                            </v-list-item-title>
-                          </v-list-item-content>
-                        </v-list-item>
-
-                        <v-list-item>
-                          <v-list-item-icon>
-                            <v-icon>mdi-map-marker</v-icon>
-                          </v-list-item-icon>
-                          <v-list-item-content>
-                            <v-list-item-title class="text-subtitle-1">
-                              <strong>Adresse:</strong> {{ getAtelierById(service.workshop_id).address }}
-                            </v-list-item-title>
-                          </v-list-item-content>
-                        </v-list-item>
-
-                        <v-list-item>
-                          <v-list-item-icon>
-                            <v-icon>mdi-phone</v-icon>
-                          </v-list-item-icon>
-                          <v-list-item-content>
-                            <v-list-item-title class="text-subtitle-1">
-                              <strong>Téléphone:</strong> {{ getAtelierById(service.workshop_id).phone_number }}
-                            </v-list-item-title>
-                          </v-list-item-content>
-                        </v-list-item>
-
-                        <v-list-item>
-                          <v-list-item-icon>
-                            <v-icon>mdi-web</v-icon>
-                          </v-list-item-icon>
-                          <v-list-item-content>
-                            <v-list-item-title class="text-subtitle-1">
-                              <strong>Site Web:</strong>
-                              <a :href="getAtelierById(service.workshop_id).website" target="_blank">{{ getAtelierById(service.workshop_id).website }}</a>
-                            </v-list-item-title>
-                          </v-list-item-content>
-                        </v-list-item>
-
-                        <v-list-item>
-                          <v-list-item-icon>
-                            <v-icon>mdi-clock-outline</v-icon>
-                          </v-list-item-icon>
-                          <v-list-item-content>
-                            <v-list-item-title class="text-subtitle-1">
-                              <strong>Heures d'ouverture:</strong> {{ getAtelierById(service.workshop_id).opening_hours }}
-                            </v-list-item-title>
-                          </v-list-item-content>
-                        </v-list-item>
-                      </v-list>
-                    </div>
-                  </v-card-text>
-                </v-card>
-              </v-col>
-            </v-row>
-            <v-pagination
-              v-model="currentPage"
-              :length="pageCount"
-              class="mt-4"
-              color="primary"
-            ></v-pagination>
-          </v-container>
-        </v-card>
-      </v-tab-item>
+       <!-- Recherche par Services -->
+    <v-tab-item v-if="tab === 1">
+      <v-text-field
+        v-model="search"
+        density="comfortable"
+        placeholder="Rechercher un service"
+        prepend-inner-icon="mdi-magnify"
+        style="max-width: 900px;"
+        variant="solo"
+        clearable
+        hide-details
+        class="mb-4 ml-4"
+      />
+      <!-- Liste des Ateliers pour Recherche par Services -->
+      <v-card class="pa-4" outlined>
+        <v-card-title>Liste des Ateliers</v-card-title>
+        <v-container>
+          <v-row>
+            <v-col v-for="service in paginatedFilteredServices" :key="service.id" cols="12" sm="6" md="6">
+              <v-card @click="goToAtelier(service.workshop_id)" class="mb-4" outlined>
+                <v-img 
+                :src="`/46371688-factory-vector-icon-style-is-bicolor-flat-symbol-blue-and-gray-colors-rounded-angles-white.jpg`" 
+                  alt="Photo de l'atelier" 
+                  height="200px" 
+                  class="mb-3"
+                ></v-img>
+                <v-card-title>{{ service.name }}</v-card-title>
+                <v-card-subtitle>{{ service.description }}</v-card-subtitle>
+                <v-card-text>
+                  <div v-if="getAtelierById(service.workshop_id)">
+                    
+                    <v-list dense>
+                      <!-- Afficher les détails de l'atelier ici -->
+                      <!-- Vous pouvez ajouter plus de détails sur l'atelier ici -->
+                    </v-list>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
+          <v-pagination
+            v-model="currentPage"
+            :length="pageCountS"
+            class="mt-4"
+            color="primary"
+          ></v-pagination>
+        </v-container>
+      </v-card>
+    </v-tab-item>
     </v-card>
   </v-col>
 </v-row>
@@ -324,6 +285,7 @@ const tab = ref(0);
 const locationQuery = ref('');
 const search = ref('');
 const selectedServices = ref([]);
+const workshopName = ref('');
 
 const services = ref([]);
 
@@ -338,6 +300,27 @@ const notifications = ref([]);
 let latitude = ref(null);
 let longitude = ref(null);
 
+// Fonction pour récupérer les notifications
+const fetchNotifications = async () => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/notifications/${workshopId}`);
+    const data = response.data;
+    
+    // Associer les notifications avec le nom de l'atelier récupéré et trier par date
+    notifications.value = data.map(notification => ({
+      id: notification[0],
+      message: notification[1],
+      type: notification[2],
+      date: notification[3], // Assurez-vous que la date est bien dans la 4e colonne
+      workshopName: workshopName.value, // Utilise le nom de l'atelier récupéré
+      showDetails: false // Par défaut, les détails sont masqués
+    })).sort((a, b) => new Date(b.date) - new Date(a.date)); // Tri décroissant par date
+    
+    unviewedCount.value = notifications.value.length; // Compte les notifications non consultées
+  } catch (error) {
+    console.error('Erreur lors de la récupération des notifications:', error);
+  }
+};
 
 // Utilisation de router
 const router = useRouter();
@@ -345,6 +328,50 @@ const router = useRouter();
 // Récupération des ateliers
 const ateliers = ref([]);
 
+
+const fetchServices = async () => {
+  try {
+    const response = await axios.get('http://localhost:8080/api/services');
+    services.value = response.data;
+  } catch (error) {
+    console.error('Erreur lors de la récupération des services:', error);
+  }
+};
+
+const filteredServices = computed(() => {
+  if (search.value) {
+    return services.value.filter(service =>
+      service.name.toLowerCase().includes(search.value.toLowerCase()) ||
+      service.description.toLowerCase().includes(search.value.toLowerCase())
+    );
+  } else {
+    return services.value;
+  }
+});
+
+const paginatedFilteredServices = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredServices.value.slice(start, end);
+});
+
+const pageCountS = computed(() => Math.ceil(filteredServices.value.length / itemsPerPage.value));
+
+// Récupérer les détails de l'atelier par ID
+const getAtelierById = (id) => {
+  return ateliers.value.find(atelier => atelier.id === id);
+};
+
+// Rediriger vers la page de l'atelier
+const goToAtelier = (id) => {
+  router.push(`/users/${id}`);
+};
+
+
+
+onMounted(() => {
+  fetchServices(); // Appel initial pour récupérer les services lors du chargement du composant
+});
 
 
 /// Récupérer les services et les ateliers lorsque le composant est monté
@@ -370,7 +397,6 @@ const filterServices = () => {
 };
 
 // Utiliser une propriété calculée pour obtenir les services filtrés
-const filteredServices = computed(() => filterServices());
 
 // Obtenir les ateliers filtrés par recherche
 const filteredAteliers = computed(() => {
@@ -459,16 +485,6 @@ const hideNotificationsDialog = () => {
   notificationsDialog.value = false;
 };
 
-// Filtrer par localisation
-const searchByLocation = () => {
-  // Logique pour filtrer par localisation
-};
-
-// Utiliser la localisation actuelle
-const useCurrentLocation = () => {
-  // Logique pour utiliser la localisation actuelle
-};
-
 
 // Pagination des services filtrés
 const paginatedServices = computed(() => {
@@ -477,34 +493,10 @@ const paginatedServices = computed(() => {
   return filteredServices.value.slice(start, end);
 });
 
-
-
-// Récupérer les détails de l'atelier par ID
-const getAtelierById = (id) => {
-  return ateliers.value.find(atelier => atelier.id === id);
-};
-
-// Rediriger vers la page de l'atelier
-const goToAtelier = (id) => {
-  router.push(`/users/${id}`);
-};
-
-
 const unviewedCount = ref(0);
 const dialog = ref(false);
 const selectedNotification = ref(null);
 const workshopId = 47; // Remplace par l'ID de l'atelier
-
-// Récupère les notifications
-const fetchNotifications = async () => {
-  try {
-    const response = await axios.get(`http://localhost:8080/api/notifications/${workshopId}`);
-    notifications.value = response.data;
-    unviewedCount.value = notifications.value.length; // Compte les notifications non consultées
-  } catch (error) {
-    console.error('Erreur lors de la récupération des notifications:', error);
-  }
-};
 
 // Marquer les notifications comme consultées
 const markAsViewed = async () => {
@@ -628,6 +620,7 @@ const fetchLocationData = async () => {
     }
 
     const data = await response.json()
+    console.log(data)
 
     if (data && data.length > 0) {
       const { lat, lon } = data[0]
@@ -693,6 +686,57 @@ onMounted(async () => {
   const L = (await import('leaflet')).default
   initMap(L)
 })
+
+const getLocation = () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords
+        // Appeler la fonction qui utilise latitude et longitude
+        fetchLocalisations(latitude, longitude)
+        updateMap(latitude, longitude)
+      },
+      (error) => {
+        console.error('Erreur de localisation:', error)
+      }
+    )
+  } else {
+    alert('La géolocalisation n\'est pas supportée par ce navigateur.')
+  }
+}
+
+const handleLocation = (lat, lon) => {
+  // Ici vous pouvez faire ce que vous voulez avec la latitude et la longitude
+  console.log(`Latitude: ${lat}, Longitude: ${lon}`)
+  // Par exemple, vous pouvez émettre un événement ou appeler une API
+}
+
+// Fonction pour récupérer le nom de l'atelier
+const fetchWorkshopName = async () => {
+  try {
+    const response = await axios.get(`http://localhost:8080/workshop/${workshopId}`);
+    const data = response.data;
+    workshopName.value = data.name;
+  } catch (error) {
+    console.error('Erreur lors de la récupération du nom de l\'atelier:', error);
+  }
+};
+
+
+
+// Fonction pour basculer l'affichage des détails de la notification
+const toggleNotification = (id) => {
+  const notification = notifications.value.find(n => n.id === id);
+  if (notification) {
+    notification.showDetails = !notification.showDetails;
+  }
+};
+
+// Fonction appelée lors du montage du composant
+onMounted(async () => {
+  await fetchWorkshopName(); // Récupère d'abord le nom de l'atelier
+  await fetchNotifications(); // Ensuite, récupère les notifications
+});
 
 </script>
 
@@ -764,5 +808,55 @@ onMounted(async () => {
   height: 100%;
   object-fit: cover; /* Ajuste l'image pour couvrir entièrement le conteneur */
 }
+.notifications-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
 
+.notifications-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notification-item {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  border-left: 4px solid #007bff;
+  overflow: hidden;
+}
+
+.notification-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.notification-summary {
+  font-size: 16px;
+  color: #333;
+}
+
+.notification-details {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #555;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 </style>

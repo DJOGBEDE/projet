@@ -137,30 +137,6 @@ def get_user():
     current_user = get_jwt_identity()  # Récupérer l'identité de l'utilisateur à partir du token
     return jsonify(current_user), 200  # Renvoie les informations de l'utilisateur
 
-
-@app.route('/api/login/atelier', methods=['POST'])
-def login_atelier():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-
-    conn = get_db_connection()
-    if conn is None:
-        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
-
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM workshops WHERE email = %s', (email,))
-    user = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
-    # Vérifiez si l'utilisateur existe et si le mot de passe correspond
-    if user and bcrypt.checkpw(password.encode('utf-8'), user[10].encode('utf-8')):  # Vérifier le mot de passe avec bcrypt
-        access_token = create_access_token(identity={'id': user[0], 'name': user[1], 'adresse': user[2], 'phone_number': user[3], 'email': user[4],'website': user[5],'role': user[5],'role': user[5]})
-        return jsonify({'token': access_token}), 200
-    return jsonify({'message': 'Email ou mot de passe incorrect.'}), 401
-
-
 @app.route('/api/atelier', methods=['GET'])
 @jwt_required()
 def get_user_atelier():
@@ -1426,7 +1402,7 @@ def update_workshop_status(workshop_id):
 def get_localisations():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, latitude, longitude FROM localisation")
+    cursor.execute("SELECT workshops_id, latitude, longitude FROM localisation")
     localisations = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -1481,6 +1457,220 @@ def get_workshops_localisation():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+@app.route('/api/login/atelier', methods=['POST'])
+def login_atelier():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
+
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM workshops WHERE email = %s', (email,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    # Vérifiez si l'utilisateur existe et si le mot de passe correspond
+    if user and bcrypt.checkpw(password.encode('utf-8'), user[9].encode('utf-8')):  # Vérifier le mot de passe avec bcrypt
+        access_token = create_access_token(identity={'id': user[0], 'name': user[1], 'adresse': user[2], 'phone_number': user[3], 'email': user[4],'website': user[5],'role': user[5],'role': user[5]})
+        return jsonify({'token': access_token}), 200
+    return jsonify({'message': 'Email ou mot de passe incorrect.'}), 401
+
+@app.route('/api/workshops', methods=['POST'])
+def add_workshop():
+    data = request.json
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    opening_time = data.get('openingTime')
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Erreur de connexion à la base de données.'}), 500
+
+    cursor = conn.cursor()
+
+    try:
+        # Insertion des données dans la table workshops
+        cursor.execute("""
+            INSERT INTO workshops (latitude, longitude, opening_time)
+            VALUES (%s, %s, %s)
+        """, (latitude, longitude, opening_time))
+        conn.commit()
+        return jsonify({'message': 'Atelier enregistré avec succès !'}), 201
+    except Exception as e:
+        print(f'Erreur: {e}')
+        conn.rollback()
+        return jsonify({'error': 'Erreur lors de l\'enregistrement'}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/workshop/<int:workshop_id>', methods=['GET'])
+def get_workshop_by_id(workshop_id):
+    query = 'SELECT * FROM workshops WHERE id = %s'
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (workshop_id,))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if row:
+            workshop = {
+                'id': row[0],
+                'name': row[1],
+                'address': row[2],
+                'phone': row[3],
+                'email': row[4],
+                'website': row[5],
+                'opening_hours': row[6],
+                'created_at': row[7],
+                'updated_at': row[8],
+                'password': row[9],
+                'latitude': row[10],
+                'longitude': row[11],
+                'description': row[12],
+                'active': row[13]
+            }
+            return jsonify(workshop)
+        else:
+            return jsonify({'error': 'Workshop not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/save-workshop', methods=['POST'])
+def save_workshop():
+    data = request.json
+    workshop_id = data.get('id')
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    opening_hours = data.get('openingTime')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        query = 'UPDATE workshops SET latitude = %s, longitude = %s, opening_hours = %s, updated_at = NOW() WHERE id = %s RETURNING *'
+        cur.execute(query, (latitude, longitude, opening_hours, workshop_id))
+        updated_workshop = cur.fetchone()
+        conn.commit()
+
+        if updated_workshop:
+            return jsonify({
+                'id': updated_workshop[0],
+                'name': updated_workshop[1],
+                'address': updated_workshop[2],
+                'phone_number': updated_workshop[3],
+                'email': updated_workshop[4],
+                'website': updated_workshop[5],
+                'opening_hours': updated_workshop[6],
+                'latitude': updated_workshop[10],
+                'longitude': updated_workshop[11],
+                'updated_at': updated_workshop[8]
+            })
+        else:
+            return jsonify({'error': 'Workshop not found'}), 404
+
+    except Exception as e:
+        print(e)
+        return jsonify({'error': 'An error occurred while updating the workshop'}), 500
+
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route('/api/atelier/opening-time', methods=['GET'])
+def get_opening_time():
+    try:
+        
+        # Vous devriez valider le token ici et obtenir l'ID de l'utilisateur
+
+        user_id = 47  # Remplacez ceci par la logique de récupération de l'ID de l'utilisateur à partir du token
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        query = 'SELECT opening_time FROM workshops WHERE id = %s'
+        cur.execute(query, (user_id,))
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if result:
+            return jsonify({'opening_time': result[0]})
+        else:
+            return jsonify({'message': 'Atelier non trouvé'}), 404
+    except Exception as e:
+        print(f'Error: {e}')
+        return jsonify({'message': 'Erreur serveur'}), 500
+####################################################################################
+
+@app.route('/api/rendezvous/user/<int:user_id>', methods=['GET'])
+def recuperer_rdv_reservations_users(user_id):
+    try:
+        # Connexion à la base de données
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Exécuter la commande SQL pour récupérer toutes les réservations de l'utilisateur
+        cursor.execute("SELECT * FROM reservations WHERE user_id = %s", (user_id,))
+        reservations = cursor.fetchall()  # Récupérer toutes les réservations
+
+        if not reservations:
+            return jsonify({"message": "Aucune réservation trouvée pour cet utilisateur."}), 404
+
+        # Préparer les résultats
+        results = []
+        for reservation in reservations:
+            results.append({
+                "id": reservation[0],  # Assurez-vous que l'index correspond à votre schéma
+                "date": reservation[3],  # Exemple d'index
+                "time": reservation[4],  # Exemple d'index
+                "details": reservation[5] , # Exemple d'index
+                "message": reservation[6],
+                "user_id": reservation[1],
+                "atelier_id": reservation[2],
+                "services": reservation[5]
+            })
+
+        return jsonify(results), 200
+
+    except Exception as e:
+        print(e)  # Pour le débogage
+        return jsonify({"message": "Erreur lors de la récupération des réservations."}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/api/rendezvous/user/<int:rendezvous_id>', methods=['DELETE'])
+def annuler_rdv_user(rendezvous_id):
+    try:
+        data = request.get_json()
+        reason = data.get('reason', '')  # Obtenir la raison de l'annulation
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Supprimer le rendez-vous
+        cursor.execute("DELETE FROM reservations WHERE id = %s RETURNING user_id, atelier_id", (rendezvous_id,))
+        result = cursor.fetchone()
+        conn.commit()  # Valider les modifications
+        return jsonify({"message": "Rendez-vous annulé avec succès."}), 200
+
+    except Exception as e:
+        print(e)
+        return jsonify({"message": "Erreur lors de l'annulation du rendez-vous."}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
 
 if __name__ == '__main__':
     app.run(port=8080)
