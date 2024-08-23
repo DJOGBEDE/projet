@@ -802,7 +802,7 @@ def create_notification():
     data = request.get_json()
   
     # Vérifiez que toutes les données nécessaires sont présentes
-    if not all(key in data for key in ['message', 'type', 'user_id', 'created_at','workshop_id', 'workshop_messages']):
+    if not all(key in data for key in ['message', 'type', 'user_id', 'created_at','workshop_id', 'workshop_messages','rdv_id']):
         return jsonify({"message": "Données manquantes."}), 400
 
     try:
@@ -812,10 +812,10 @@ def create_notification():
         # Insérer la notification dans la base de données
         cursor.execute(
             """
-            INSERT INTO notifications (message, type, user_id, created_at, workshop_id, workshop_messages)
-            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id;
+            INSERT INTO notifications (message, type, user_id, created_at, workshop_id, workshop_messages, rdv_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id;
             """,
-            (data['message'], data['type'], data['user_id'], data['created_at'], data['workshop_id'], data['workshop_messages'])
+            (data['message'], data['type'], data['user_id'], data['created_at'], data['workshop_id'], data['workshop_messages'],data['rdv_id'])
         )
         
         notification_id = cursor.fetchone()[0]
@@ -1092,13 +1092,20 @@ def get_notifications(workshop_id):
 
     try:
         cursor.execute("""
-            SELECT *
+            SELECT message, type, workshop_messages 
             FROM notifications
-            WHERE workshop_id = %s
+            WHERE rdv_id = %s
         """, (workshop_id,))
         
+        # Récupérer tous les résultats
         notifications = cursor.fetchall()
         print(f"Fetched notifications: {notifications}")  # Debug message
+        
+        # Stocker les résultats dans des variables
+        messages = [notification[0] for notification in notifications]
+        types = [notification[1] for notification in notifications]
+        workshop_messages = [notification[2] for notification in notifications]
+ 
     except Exception as e:
         print(f"Error: {e}")  # Log the error for debugging
         return jsonify({"error": str(e)}), 500
@@ -1106,7 +1113,13 @@ def get_notifications(workshop_id):
         cursor.close()
         conn.close()
     
-    return jsonify(notifications)
+    # Vous pouvez retourner les variables ou les structurer comme vous le souhaitez
+    return jsonify({
+        "messages": messages,
+        "types": types,
+        "workshop_messages": workshop_messages
+    })
+
 
 
 #########################################################################################################################################
@@ -1649,8 +1662,10 @@ def recuperer_rdv_reservations_users(user_id):
         cursor.close()
         conn.close()
 
-@app.route('/api/rendezvous/user/<int:rendezvous_id>', methods=['DELETE'])
-def annuler_rdv_user(rendezvous_id):
+######################################################################################################
+
+@app.route('/api/rendezvous/users/<int:rendezvous_id>', methods=['DELETE'])
+def annuler_rdv_users(rendezvous_id):
     try:
         data = request.get_json()
         reason = data.get('reason', '')  # Obtenir la raison de l'annulation
@@ -1671,6 +1686,99 @@ def annuler_rdv_user(rendezvous_id):
     finally:
         cursor.close()
         conn.close()
+
+
+@app.route('/api/users/notifications', methods=['POST'])
+def create_notification_users():
+    data = request.get_json()
+  
+    # Vérifiez que toutes les données nécessaires sont présentes
+    if not all(key in data for key in ['message', 'type', 'user_id', 'created_at','workshop_id', 'workshop_messages']):
+        return jsonify({"message": "Données manquantes."}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Insérer la notification dans la base de données
+        cursor.execute(
+            """
+            INSERT INTO notifications (message, type, user_id, created_at, workshop_id, workshop_messages)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id;
+            """,
+            (data['message'], data['type'], data['user_id'], data['created_at'], data['workshop_id'], data['workshop_messages'])
+        )
+        
+        notification_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({"message": "Notification créée avec succès!", "id": notification_id}), 201
+    except Exception as e:
+        print(f"Erreur lors de l'insertion de la notification: {str(e)}")
+        return jsonify({"message": "Erreur lors de la création de la notification."}), 500
+
+@app.route('/api/rendezvous/users/<int:user_id>', methods=['GET'])
+def recuperer_rdv_users(user_id):
+    try:
+        # Connexion à la base de données
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Exécuter la commande SQL pour récupérer toutes les réservations de l'utilisateur
+        cursor.execute("SELECT * FROM reservations WHERE user_id = %s", (user_id,))
+        reservations = cursor.fetchall()  # Récupérer toutes les réservations
+
+        if not reservations:
+            return jsonify({"message": "Aucune réservation trouvée pour cet utilisateur."}), 404
+
+        # Préparer les résultats
+        results = []
+        for reservation in reservations:
+            results.append({
+                "id": reservation[0],  # Assurez-vous que l'index correspond à votre schéma
+                "date": reservation[3],  # Exemple d'index
+                "time": reservation[4],  # Exemple d'index
+                "details": reservation[5] , # Exemple d'index
+                "message": reservation[6],
+                "user_id": reservation[1],
+                "atelier_id": reservation[2],
+                "services": reservation[5]
+            })
+
+        return jsonify(results), 200
+
+    except Exception as e:
+        print(e)  # Pour le débogage
+        return jsonify({"message": "Erreur lors de la récupération des réservations."}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/rendezvous/user/<int:rendezvous_id>', methods=['DELETE'])
+def annuler_rdv_user(rendezvous_id):
+    try:
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Supprimer le rendez-vous
+        cursor.execute("DELETE FROM reservations WHERE id = %s RETURNING user_id, atelier_id", (rendezvous_id,))
+        result = cursor.fetchone()
+        conn.commit()  # Valider les modifications
+        return jsonify({"message": "Rendez-vous annulé avec succès."}), 200
+
+    except Exception as e:
+        print(e)
+        return jsonify({"message": "Erreur lors de l'annulation du rendez-vous."}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
 
 if __name__ == '__main__':
     app.run(port=8080)

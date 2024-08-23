@@ -69,7 +69,7 @@
                     <v-list-item v-for="resultat in resultats" :key="resultat.id">
                       <v-list-item-content>
                         <v-list-item-title>
-                          {{ resultat.date }} à {{ resultat.time }}
+                          {{ resultat.date }} à {{ resultat.time }} 
                         </v-list-item-title>
                         <v-list-item-subtitle>
                           {{ resultat.details }}
@@ -112,7 +112,6 @@
       </v-container>
     </v-main>
 
-    <!-- Dialogue pour afficher les détails de la réservation -->
     <v-dialog v-model="detailsDialog" max-width="500px">
       <v-card>
         <v-card-title>Détails du Rendez-vous</v-card-title>
@@ -120,6 +119,12 @@
           <p><strong>Date :</strong> {{ selectedAppointment.date }}</p>
           <p><strong>Heure :</strong> {{ selectedAppointment.time }}</p>
           <p><strong>Détails :</strong> {{ selectedAppointment.details }}</p>
+          <p>
+            <strong class="p">Statut :</strong>
+            <span class="p">
+              {{ notifications.types && notifications.types.length ? notifications.types.join(', ') : 'En cours' }}
+            </span>
+          </p>
         </v-card-text>
         <v-card-actions>
           <v-btn color="primary" @click="detailsDialog = false">Fermer</v-btn>
@@ -132,33 +137,20 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
-
-// Données pour le profil de l'utilisateur
-const profile = ref({
-  name: '',
-  email: '',
-  phone: ''
-});
-
-const userData = ref(null); 
-
-// Données pour les rendez-vous
+// Déclaration des variables
+const profile = ref({ name: '', email: '', phone: '' });
+const userData = ref(null);
 const resultats = ref([]);
-
-// Préférences
-const preferences = ref({
-  notifications: true,
-  messages: false
-});
-
-// Dialogues et sélection de réservation
+const preferences = ref({ notifications: true, messages: false });
 const detailsDialog = ref(false);
 const selectedAppointment = ref({});
-
+const notifications = ref({ types: [] });
 const profilePicture = ref(null);
 const profilePicturePreview = ref(null);
-const currentProfilePicture = ref('');  // URL de la photo de profil actuelle
+const currentProfilePicture = ref('');
 const profilePictureUrl = ref('');
+// Données pour le profil de l'utilisateur
+
 
 // Fonction pour récupérer la photo de profil actuelle
 async function fetchProfilePicture() {
@@ -300,6 +292,7 @@ async function updatePreferences() {
 
 // Fonction pour afficher les détails d'un rendez-vous
 function viewDetails(appointmentId) {
+  fetchNotifications(appointmentId)
   const appointment = resultats.value.find(app => app.id === appointmentId);
   if (appointment) {
     selectedAppointment.value = appointment;
@@ -317,9 +310,20 @@ async function cancelAppointment(appointmentId) {
     console.error('Erreur lors de l\'annulation du rendez-vous', error);
   }
 }
+// Exemple de récupération des notifications avec valeur par défaut
+const fetchNotifications = async (appointmentId) => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/notifications/${appointmentId}`);
+    notifications.value = response.data || { types: [] }; 
+    console.log('Notifications récupérées:', notifications.value);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des notifications:', error);
+    notifications.value = { types: [] }; 
+  }
+};
 
+// Appel des fonctions sur montage
 onMounted(async () => {
-  console.log('Montage du composant - Appels API');
   await fetchUserData();
   fetchAppointments();
 });
@@ -331,5 +335,10 @@ onMounted(async () => {
   border-radius: 50%;
   max-height: 150px;
   max-width: 150px;
+}
+.p{
+  color: red;
+  height: 10px;
+  text-size-adjust: 10px;
 }
 </style>
