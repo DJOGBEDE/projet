@@ -8,7 +8,7 @@ import bcrypt  # Assurez-vous d'importer bcrypt
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import os
-
+import requests
 
 
 app = Flask(__name__)
@@ -1779,6 +1779,57 @@ def annuler_rdv_user(rendezvous_id):
         cursor.close()
         conn.close()
 
+
+# Configuration des variables CinetPay
+CINEPAY_API_KEY = os.getenv('1519658666d9e16f2c0819.57979115')
+CINEPAY_SITE_ID = os.getenv('5879320')
+CINEPAY_NOTIFY_URL = 'http://localhost:8080/notify'
+CINEPAY_RETURN_URL = 'http://localhost:8080/thankyou'
+
+@app.route('/api/payment', methods=['POST'])
+def process_payment():
+    data = request.json
+
+    # Préparer les données pour CinetPay
+    payload = {
+        "apikey": CINEPAY_API_KEY,
+        "site_id": CINEPAY_SITE_ID,
+        "transaction_id": data.get('transaction_id'),
+        "amount": data.get('amount'),
+        "currency": data.get('currency', 'XOF'),
+        "description": data.get('description'),
+        "notify_url": CINEPAY_NOTIFY_URL,
+        "return_url": CINEPAY_RETURN_URL,
+        "channels": "ALL",
+        "customer_name": data.get('customer_name'),
+        "customer_surname": data.get('customer_surname'),
+        "customer_phone_number": data.get('customer_phone_number'),
+        "customer_email": data.get('customer_email'),
+        "customer_address": data.get('customer_address'),
+        "customer_city": data.get('customer_city'),
+        "customer_country": data.get('customer_country'),
+        "customer_state": data.get('customer_state'),
+        "customer_zip_code": data.get('customer_zip_code'),
+    }
+
+    # Envoyer la requête à l'API CinetPay
+    response = requests.post('https://api-checkout.cinetpay.com/v2/payment', json=payload)
+    response_data = response.json()
+
+    if response_data['code'] == '201':
+        payment_url = response_data['data']['payment_url']
+        return jsonify({'payment_url': payment_url})
+    else:
+        return jsonify({'error': response_data['message']}), 400
+
+@app.route('/notify', methods=['POST'])
+def notify():
+    # Traiter les notifications de paiement ici
+    return jsonify({'status': 'Notification received'})
+
+@app.route('/thankyou')
+def thankyou():
+    return 'Thank you for your payment!'
 
 if __name__ == '__main__':
     app.run(port=8080)
